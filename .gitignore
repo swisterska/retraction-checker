@@ -5,3 +5,4 @@ uploads/
 .env
 .DS_Store
 references.json
+references_enriched.json
