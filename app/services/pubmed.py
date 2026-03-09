@@ -2,8 +2,8 @@ from Bio import Entrez
 import time
 
 
-# obowiązkowe wg PubMed API (identyfikacja użytkownika)
-Entrez.email = "twoj_mail@example.com"
+# mandatory for Pubmed API (user identification)
+Entrez.email = "278448@student.pwr.edu.pl"
 
 
 def get_pmid(doi: str) -> str | None:
