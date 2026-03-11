@@ -7,7 +7,6 @@ Entrez.email = "278448@student.pwr.edu.pl"
 
 
 def pubmed_search(query: str) -> str | None:
-   
     """
     Perform a PubMed search and return the first matching PMID.
 
@@ -37,7 +36,6 @@ def pubmed_search(query: str) -> str | None:
 
 
 def normalize_doi(doi: str | None) -> str | None:
-   
     """
     Normalize DOI string to a canonical format.
 
@@ -64,7 +62,6 @@ def normalize_doi(doi: str | None) -> str | None:
 
 
 def get_pmid(doi: str | None) -> str | None:
-    
     """
     Retrieve PubMed ID (PMID) using a DOI.
 
@@ -85,7 +82,6 @@ def get_pmid(doi: str | None) -> str | None:
 
 
 def get_pmid_by_title(title: str | None) -> str | None:
-   
     """
     Retrieve PMID using the article title.
 
@@ -105,7 +101,6 @@ def get_pmid_by_title(title: str | None) -> str | None:
 
 
 def get_pmid_by_title_author(title: str | None, authors: list[str] | None) -> str | None:
-   
     """
     Retrieve PMID using article title and first author surname.
 
@@ -132,7 +127,6 @@ def get_pmid_by_title_author(title: str | None, authors: list[str] | None) -> st
 
 
 def get_pmid_by_author_keyword(authors: list[str] | None, title: str | None) -> str | None:
-    
     """
     Retrieve PMID using author surname and a keyword from the title.
 
@@ -158,7 +152,6 @@ def get_pmid_by_author_keyword(authors: list[str] | None, title: str | None) -> 
 
 
 def get_doi_from_crossref(title: str | None, authors: list[str] | None = None) -> str | None:
-   
     """
     Retrieve DOI for a publication using the Crossref API.
 

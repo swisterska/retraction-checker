@@ -3,7 +3,6 @@ from app.services.pubmed import normalize_doi, get_pmid, get_doi_from_crossref
 
 
 def test_normalize_doi():
-   
     """
     Test that DOI normalization removes common prefixes
     and converts the DOI to lowercase canonical form.
@@ -17,7 +16,6 @@ def test_normalize_doi():
 
 @patch("app.services.pubmed.pubmed_search")
 def test_get_pmid(mock_search):
-    
     """
     Test that get_pmid correctly returns a PMID when
     PubMed search returns a valid result.
@@ -41,9 +39,9 @@ def test_get_pmid_none():
 
 
 
+
 @patch("app.services.pubmed.requests.get")
 def test_crossref_doi(mock_get):
-    
     """
     Test that the Crossref API response is correctly parsed
     and the DOI is extracted from the returned JSON structure.
@@ -66,7 +64,6 @@ def test_crossref_doi(mock_get):
 
 @patch("app.services.pubmed.requests.get")
 def test_crossref_api_failure(mock_get):
-    
     """
     Test that get_doi_from_crossref returns None when the
     Crossref API returns a non-200 HTTP status code.
