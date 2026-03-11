@@ -15,10 +15,7 @@
   {
     "title": "Surgical site infections: epidemiology, microbiology and prevention",
     "doi": "10.1016/S0195-6701(08)60017-1",
-    "authors": [
-      "C Owens",
-      "K Stoessel"
-    ],
+    "authors": ["C Owens", "K Stoessel"],
     "pmid": "19022115"
   },
   {
@@ -79,13 +76,7 @@
   {
     "title": "Outcomes of carbapenem-resistant Klebsiella pneumoniae infection and the impact of antimicrobial and adjunctive therapies",
     "doi": "10.1086/592412",
-    "authors": [
-      "G Patel",
-      "S Huprikar",
-      "S Factor",
-      "S Jenkins",
-      "D Calfee"
-    ],
+    "authors": ["G Patel", "S Huprikar", "S Factor", "S Jenkins", "D Calfee"],
     "pmid": "18973455"
   },
   {
@@ -104,9 +95,7 @@
   {
     "title": "Surgical site infections -review of current knowledge, methods of prevention",
     "doi": "10.5604/01.3001.0012.7253",
-    "authors": [
-      "W Kolasi Nski"
-    ],
+    "authors": ["W Kolasi Nski"],
     "pmid": "31481640"
   },
   {
@@ -195,30 +184,19 @@
   {
     "title": "AST ID Community of Practice. Surgical site infections: guidelines from the American society of transplantation infectious diseases community of practice",
     "doi": "10.1111/ctr.13589",
-    "authors": [
-      "L Abbo",
-      "P Grossi"
-    ],
+    "authors": ["L Abbo", "P Grossi"],
     "pmid": "31077619"
   },
   {
     "title": "Carbapenems for surgical prophylaxis?",
     "doi": "10.1056/NEJMe068258",
-    "authors": [
-      "D Sexton"
-    ],
+    "authors": ["D Sexton"],
     "pmid": "17182996"
   },
   {
     "title": "Preferred reporting items for systematic reviews and meta-analyses: the PRISMA statement",
     "doi": "10.1016/j.jclinepi.2009.06.005",
-    "authors": [
-      "D Moher",
-      "A Liberati",
-      "J Tetzlaff",
-      "D Altman",
-      "Group"
-    ],
+    "authors": ["D Moher", "A Liberati", "J Tetzlaff", "D Altman", "Group"],
     "pmid": "19631508"
   },
   {
@@ -256,11 +234,7 @@
   {
     "title": "The GRADE Working Group. GRADE handbook for grading quality of evidence and strength of recommendations",
     "doi": "10.1136/bmj.a139",
-    "authors": [
-      "Hbj Schu€nemann",
-      "G Guyatt",
-      "A Oxman"
-    ],
+    "authors": ["Hbj Schu€nemann", "G Guyatt", "A Oxman"],
     "pmid": null
   },
   {
@@ -422,12 +396,7 @@
   {
     "title": "Surgical antibiotic prophylaxis in patients colonized with multidrug-resistant Gram-negative bacteria: Practical and conceptual aspects",
     "doi": "10.1093/jac/dkaa496",
-    "authors": [
-      "E Temkin",
-      "I Margalit",
-      "A Nutman",
-      "Y Carmeli"
-    ],
+    "authors": ["E Temkin", "I Margalit", "A Nutman", "Y Carmeli"],
     "pmid": "33534884"
   },
   {
@@ -594,12 +563,7 @@
   {
     "title": "Best practice statement on urologic procedures and antimicrobial prophylaxis",
     "doi": "10.1097/JU.0000000000000509",
-    "authors": [
-      "D Lightner",
-      "K Wymer",
-      "J Sanchez",
-      "L Kavoussi"
-    ],
+    "authors": ["D Lightner", "K Wymer", "J Sanchez", "L Kavoussi"],
     "pmid": "31441676"
   },
   {
@@ -623,9 +587,7 @@
   {
     "title": "Evidence-based update to the U.S. Centers for disease control and prevention and healthcare infection control practices advisory Committee guideline for the prevention of surgical site infection: Developmental process",
     "doi": "10.1089/sur.2015.264",
-    "authors": [
-      "S Berríos-Torres"
-    ],
+    "authors": ["S Berríos-Torres"],
     "pmid": "26891203"
   },
   {
@@ -644,12 +606,7 @@
   {
     "title": "Prolonged antibiotic prophylaxis after cardiovascular surgery and its effect on surgical site infections and antimicrobial resistance",
     "doi": "10.1001/jamasurg.2019.0569",
-    "authors": [
-      "S Harbarth",
-      "M Samore",
-      "D Lichtenberg",
-      "Y Carmeli"
-    ],
+    "authors": ["S Harbarth", "M Samore", "D Lichtenberg", "Y Carmeli"],
     "pmid": "31017647"
   },
   {
@@ -694,11 +651,7 @@
   {
     "title": "Does duration of perioperative antibiotic prophylaxis matter in cardiac surgery? A systematic review and meta-analysis",
     "doi": "10.1097/sla.0b013e318214b7e4",
-    "authors": [
-      "D Mertz",
-      "J Johnstone",
-      "M Loeb"
-    ],
+    "authors": ["D Mertz", "J Johnstone", "M Loeb"],
     "pmid": "21412147"
   },
   {
@@ -710,40 +663,25 @@
   {
     "title": "Perioperative antibiotic prophylaxis to prevent surgical site infections in solid organ transplantation",
     "doi": "10.1097/TP.0000000000001848",
-    "authors": [
-      "J Anesi",
-      "E Blumberg",
-      "L Abbo"
-    ],
+    "authors": ["J Anesi", "E Blumberg", "L Abbo"],
     "pmid": "28614192"
   },
   {
     "title": "Multidrug-resistant bacterial infections after liver transplantation: an ever-growing challenge",
     "doi": "10.3748/wjg.v20.i20.6201",
-    "authors": [
-      "G Santoro-Lopes",
-      "E De Gouvêa"
-    ],
+    "authors": ["G Santoro-Lopes", "E De Gouvêa"],
     "pmid": "24876740"
   },
   {
     "title": "Multidrug-resistant gramnegative bacteria infections in solid organ transplantation",
     "doi": "10.1111/ajt.12096",
-    "authors": [
-      "D Van Duin",
-      "C Van Delden",
-      "Practice Astidco"
-    ],
+    "authors": ["D Van Duin", "C Van Delden", "Practice Astidco"],
     "pmid": "23464996"
   },
   {
     "title": "The global challenge of carbapenem-resistant Enterobacteriaceae in transplant recipients and patients with hematologic malignancies",
     "doi": "10.1093/cid/ciu052",
-    "authors": [
-      "M Satlin",
-      "S Jenkins",
-      "T Walsh"
-    ],
+    "authors": ["M Satlin", "S Jenkins", "T Walsh"],
     "pmid": "24463280"
   },
   {
@@ -774,23 +712,13 @@
   {
     "title": "Multidrug-resistant organisms in liver transplant: Mitigating risk and managing infections",
     "doi": "10.1002/lt.24486",
-    "authors": [
-      "J Hand",
-      "G Patel"
-    ],
+    "authors": ["J Hand", "G Patel"],
     "pmid": "27228555"
   },
   {
     "title": "Multidrug resistant gram-negative bacilli as predominant bacteremic pathogens in liver transplant recipients",
     "doi": "10.1111/j.1399-3062.2009.00421.x",
-    "authors": [
-      "S Shi",
-      "H Kong",
-      "J Xu",
-      "W Zhang",
-      "C Jia",
-      "W Wang"
-    ],
+    "authors": ["S Shi", "H Kong", "J Xu", "W Zhang", "C Jia", "W Wang"],
     "pmid": "19638006"
   },
   {
@@ -835,22 +763,13 @@
   {
     "title": "Pseudomonas Aeruginosa infection among liver transplant recipients: a clinical analysis of 15 cases",
     "doi": "10.1016/j.transproceed.2016.03.052",
-    "authors": [
-      "Z Zhong",
-      "A Luo",
-      "Q Wan",
-      "Q Ye"
-    ],
+    "authors": ["Z Zhong", "A Luo", "Q Wan", "Q Ye"],
     "pmid": "27569958"
   },
   {
     "title": "Multidrug-resistant gram-negative bacterial infections in solid organ transplant recipients-guidelines from the American society of transplantation infectious diseases community of practice",
     "doi": "10.1111/ctr.13594",
-    "authors": [
-      "S Pouch",
-      "G Patel",
-      "Practice Astidco"
-    ],
+    "authors": ["S Pouch", "G Patel", "Practice Astidco"],
     "pmid": "31102483"
   },
   {
@@ -921,13 +840,7 @@
   {
     "title": "Complications after prostate biopsy: data from SEER-Medicare",
     "doi": "10.1016/j.juro.2011.06.057",
-    "authors": [
-      "S Loeb",
-      "H Carter",
-      "S Berndt",
-      "W Ricker",
-      "E Schaeffer"
-    ],
+    "authors": ["S Loeb", "H Carter", "S Berndt", "W Ricker", "E Schaeffer"],
     "pmid": "21944136"
   },
   {
@@ -946,21 +859,13 @@
   {
     "title": "Antibiotic prophylaxis for transrectal prostate biopsy",
     "doi": "10.1002/14651858.CD006576.pub2",
-    "authors": [
-      "E Zani",
-      "O Clark",
-      "Rodrigues Netto"
-    ],
+    "authors": ["E Zani", "O Clark", "Rodrigues Netto"],
     "pmid": "21563156"
   },
   {
     "title": "Prevalence of antimicrobial resistance in intestinal flora of patients undergoing prostatic biopsy: Implications for prophylaxis and treatment of infections after biopsy",
     "doi": "10.1111/j.1464-410X.2010.09294.x",
-    "authors": [
-      "D Batura",
-      "G Rao",
-      "P Nielsen"
-    ],
+    "authors": ["D Batura", "G Rao", "P Nielsen"],
     "pmid": "20346055"
   },
   {
@@ -991,21 +896,13 @@
   {
     "title": "Ertapenem prophylaxis reduces sepsis after transrectal biopsy of the prostate",
     "doi": "10.1111/bju.12590",
-    "authors": [
-      "G Losco",
-      "R Studd",
-      "T Blackmore"
-    ],
+    "authors": ["G Losco", "R Studd", "T Blackmore"],
     "pmid": "24894854"
   },
   {
     "title": "Transrectal prostate biopsyassociated prophylaxis and infectious complications: report of a query to the emerging infections network of the infectious diseases society of America",
     "doi": "10.1093/ofid/ofv002",
-    "authors": [
-      "J Johnson",
-      "P Polgreen",
-      "S Beekmann"
-    ],
+    "authors": ["J Johnson", "P Polgreen", "S Beekmann"],
     "pmid": "26034753"
   },
   {
@@ -1075,12 +972,7 @@
   {
     "title": "The role of targeted prophylactic antimicrobial therapy before transrectal ultrasonography-guided prostate biopsy in reducing infection rates: a systematic review",
     "doi": "10.1111/bju.13402",
-    "authors": [
-      "A Cussans",
-      "B Somani",
-      "A Basarab",
-      "T Dudderidge"
-    ],
+    "authors": ["A Cussans", "B Somani", "A Basarab", "T Dudderidge"],
     "pmid": "26709240"
   },
   {
@@ -1112,11 +1004,7 @@
   {
     "title": "Reducing infectious complications following transrectal ultrasound-guided prostate biopsy: a systematic review",
     "doi": "10.3909/riu0713",
-    "authors": [
-      "J Walker",
-      "N Singla",
-      "C Roehrborn"
-    ],
+    "authors": ["J Walker", "N Singla", "C Roehrborn"],
     "pmid": "27601966"
   },
   {
@@ -1135,14 +1023,7 @@
   {
     "title": "Trial Comparing a Combined regimen of amikacin and ciprofloxacin to ciprofloxacin alone as transrectal prostate biopsy prophylaxis in the era of high fluoroquinoloneresistant rectal flora",
     "doi": "10.3346/jkms.2018.33.e113",
-    "authors": [
-      "K Son",
-      "H Chung",
-      "S Jung",
-      "M Kim",
-      "E Hwang",
-      "J Kim"
-    ],
+    "authors": ["K Son", "H Chung", "S Jung", "M Kim", "E Hwang", "J Kim"],
     "pmid": "29629517"
   },
   {
@@ -1206,11 +1087,7 @@
   {
     "title": "Trends in antibiotic resistance in urologic practice",
     "doi": "10.1016/j.euf.2016.09.006",
-    "authors": [
-      "H Kandil",
-      "E Cramp",
-      "T Vaghela"
-    ],
+    "authors": ["H Kandil", "E Cramp", "T Vaghela"],
     "pmid": "28723468"
   },
   {
@@ -1242,14 +1119,7 @@
   {
     "title": "Ertapenem prophylaxis of surgical site infections in elective colorectal surgery in China: a multicentre, randomized, double-blind, active-controlled study",
     "doi": "10.1093/jac/dku302",
-    "authors": [
-      "X Leng",
-      "Y Zhao",
-      "H Qiu",
-      "Y Cao",
-      "W Zhu",
-      "J Shen"
-    ],
+    "authors": ["X Leng", "Y Zhao", "H Qiu", "Y Cao", "W Zhu", "J Shen"],
     "pmid": "25151205"
   },
   {

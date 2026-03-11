@@ -5,11 +5,11 @@ from a PDF file and enriching them with PubMed identifiers (PMIDs).
 Pipeline steps:
 1. Send the PDF to the GROBID service to extract references as TEI XML.
 2. Parse the XML and convert references into Python dictionaries.
-3. Query the PubMed API to retrieve PMIDs using the reference DOIs.
+3. Query the PubMed API to retrieve PMIDs.
 4. Save the enriched references to a JSON file.
 
 The script prints basic progress information and saves the final results
-to "references_enriched.json".
+to "references_enriched_new.json".
 """
 
 import json
