@@ -17,6 +17,7 @@ import json
 from services.grobid import parse_references
 from services.xml_parser import extract_references
 from services.pubmed import enrich_with_pmid
+from services.retractions import RetractionService
 
 xml = parse_references("uploads/test.pdf")
 
@@ -24,6 +25,13 @@ refs = extract_references(xml)
 
 print("Number of references:", len(refs))
 enriched = enrich_with_pmid(refs)
+retraction_service = RetractionService("retractions.csv")
+
+enriched = retraction_service.mark_retracted(enriched)
+
+retracted_count = sum(1 for r in enriched if r.get("retracted"))
+
+print("Retracted articles:", retracted_count)
 
 print(enriched[:3])
 

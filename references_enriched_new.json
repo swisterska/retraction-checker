@@ -10,7 +10,8 @@
       "M Mendelson",
       "D Monnet"
     ],
-    "pmid": "29276051"
+    "pmid": "29276051",
+    "retracted": true
   },
   {
     "title": "Surgical site infections: epidemiology, microbiology and prevention",
@@ -19,13 +20,15 @@
       "C Owens",
       "K Stoessel"
     ],
-    "pmid": "19022115"
+    "pmid": "19022115",
+    "retracted": false
   },
   {
     "title": "Global guidelines for the prevention of surgical site infection. 2nd ed",
     "doi": null,
     "authors": [],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "The impact of surgical-site infections in the 1990s: attributable mortality, excess length of hospitalization, and extra costs",
@@ -37,7 +40,8 @@
       "W Wilkinson",
       "D Sexton"
     ],
-    "pmid": "10580621"
+    "pmid": "10580621",
+    "retracted": false
   },
   {
     "title": "Clinical practice guidelines for antimicrobial prophylaxis in surgery",
@@ -50,7 +54,8 @@
       "P Auwaerter",
       "M Bolon"
     ],
-    "pmid": "23461695"
+    "pmid": "23461695",
+    "retracted": false
   },
   {
     "title": "Potential burden of antibiotic resistance on surgery and cancer chemotherapy antibiotic prophylaxis in the USA: a literature review and modelling study",
@@ -62,7 +67,8 @@
       "D Morgan",
       "R Laxminarayan"
     ],
-    "pmid": "26482597"
+    "pmid": "26482597",
+    "retracted": false
   },
   {
     "title": "Is the efficacy of antibiotic prophylaxis for surgical procedures decreasing? Systematic review and meta-analysis of randomized control trials",
@@ -74,7 +80,8 @@
       "J Solomkin",
       "R Laxminarayan"
     ],
-    "pmid": "30417800"
+    "pmid": "30417800",
+    "retracted": false
   },
   {
     "title": "Outcomes of carbapenem-resistant Klebsiella pneumoniae infection and the impact of antimicrobial and adjunctive therapies",
@@ -86,7 +93,8 @@
       "S Jenkins",
       "D Calfee"
     ],
-    "pmid": "18973455"
+    "pmid": "18973455",
+    "retracted": false
   },
   {
     "title": "Management of superficial and deep surgical site infection: an international multidisciplinary consensus",
@@ -99,7 +107,8 @@
       "E Romanini",
       "A Vozikis"
     ],
-    "pmid": "33770411"
+    "pmid": "33770411",
+    "retracted": false
   },
   {
     "title": "Surgical site infections -review of current knowledge, methods of prevention",
@@ -107,7 +116,8 @@
     "authors": [
       "W Kolasi Nski"
     ],
-    "pmid": "31481640"
+    "pmid": "31481640",
+    "retracted": false
   },
   {
     "title": "Den Boer JW. Association between rectal colonization with highly resistant Gram-negative rods (HR-GNRs) and subsequent infection with HR-GNRs in clinical patients: a one year historical cohort study",
@@ -119,7 +129,8 @@
       "J Kluytmans",
       "Jwa Rossen"
     ],
-    "pmid": "30682095"
+    "pmid": "30682095",
+    "retracted": false
   },
   {
     "title": "Carbapenem-resistant Klebsiella pneumoniae infections early after liver transplantation: a single-center experience",
@@ -132,7 +143,8 @@
       "M Nichelatti",
       "De Gasperi"
     ],
-    "pmid": "28457370"
+    "pmid": "28457370",
+    "retracted": false
   },
   {
     "title": "Surgical site infection after liver transplantation in the era of multidrug-resistant bacteria: what new risks should be considered?",
@@ -145,7 +157,8 @@
       "D 'albuquerque",
       "Lac Abdala"
     ],
-    "pmid": "33045498"
+    "pmid": "33045498",
+    "retracted": false
   },
   {
     "title": "Colonisation with extended-spectrum beta-lactamase-producing Enterobacterales and infection risk in patients undergoing surgery: a systematic review and meta-analysis",
@@ -158,7 +171,8 @@
       "M Meroi",
       "A Schwabe"
     ],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "ESCMID-EUCIC clinical guidelines on decolonization of multidrug-resistant Gram-negative bacteria carriers",
@@ -171,13 +185,15 @@
       "P Eggimann",
       "B Huttner"
     ],
-    "pmid": "30708122"
+    "pmid": "30708122",
+    "retracted": false
   },
   {
     "title": "European Centre for Disease Prevention and Control. Systematic review and evidence-based guidance on perioperative antibiotic prophylaxis",
     "doi": null,
     "authors": [],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "Centers for Disease Control and Prevention guideline for the prevention of surgical site infection",
@@ -190,7 +206,8 @@
       "E Stone",
       "R Kelz"
     ],
-    "pmid": "28467526"
+    "pmid": "28467526",
+    "retracted": false
   },
   {
     "title": "AST ID Community of Practice. Surgical site infections: guidelines from the American society of transplantation infectious diseases community of practice",
@@ -199,7 +216,8 @@
       "L Abbo",
       "P Grossi"
     ],
-    "pmid": "31077619"
+    "pmid": "31077619",
+    "retracted": false
   },
   {
     "title": "Carbapenems for surgical prophylaxis?",
@@ -207,7 +225,8 @@
     "authors": [
       "D Sexton"
     ],
-    "pmid": "17182996"
+    "pmid": "17182996",
+    "retracted": false
   },
   {
     "title": "Preferred reporting items for systematic reviews and meta-analyses: the PRISMA statement",
@@ -219,7 +238,8 @@
       "D Altman",
       "Group"
     ],
-    "pmid": "19631508"
+    "pmid": "19631508",
+    "retracted": false
   },
   {
     "title": "Multidrug-resistant, extensively drug-resistant and pandrug-resistant bacteria: an international expert proposal for interim standard definitions for acquired resistance",
@@ -232,13 +252,15 @@
       "M Falagas",
       "C Giske"
     ],
-    "pmid": "21793988"
+    "pmid": "21793988",
+    "retracted": false
   },
   {
     "title": "Cochrane Effective Practice Organisation of Care. EPOC Resources for review authors",
     "doi": null,
     "authors": [],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "Newcastle-Ottawa quality assessment scale cohort studies",
@@ -251,7 +273,8 @@
       "J Welch",
       "V Losos"
     ],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "The GRADE Working Group. GRADE handbook for grading quality of evidence and strength of recommendations",
@@ -261,7 +284,8 @@
       "G Guyatt",
       "A Oxman"
     ],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "Guideline panels should seldom make good practice statements: guidance from the GRADE Working Group",
@@ -274,7 +298,8 @@
       "M Nothacker",
       "S Lange"
     ],
-    "pmid": "27452192"
+    "pmid": "27452192",
+    "retracted": false
   },
   {
     "title": "Pretransplant fecal carriage of extended-spectrum beta-lactamase-producing Enterobacteriaceae and infection after liver transplant",
@@ -287,7 +312,8 @@
       "F Durand",
       "E Marcon"
     ],
-    "pmid": "22607885"
+    "pmid": "22607885",
+    "retracted": false
   },
   {
     "title": "Risk factors associated with preoperative fecal carriage of extended-spectrum beta-lactamase-producing Enterobacteriaceae in liver transplant recipients",
@@ -300,7 +326,8 @@
       "C Paugam-Burtz",
       "J Belghiti"
     ],
-    "pmid": "24330161"
+    "pmid": "24330161",
+    "retracted": false
   },
   {
     "title": "Colonization by fecal extendedspectrum beta-lactamase-producing Enterobacteriaceae and surgical site infections in patients with cancer undergoing gastrointestinal and gynecologic surgery",
@@ -313,7 +340,8 @@
       "Chora-Hern Andez Ld",
       "C Vel Azquez-Acosta"
     ],
-    "pmid": "30850249"
+    "pmid": "30850249",
+    "retracted": false
   },
   {
     "title": "Carriage of extended-spectrum beta-lactamase-producing Enterobacteriaceae and the risk of surgical site infection after colorectal surgery: a prospective cohort study",
@@ -326,7 +354,8 @@
       "B Carevic",
       "I Radovanovic"
     ],
-    "pmid": "30204851"
+    "pmid": "30204851",
+    "retracted": false
   },
   {
     "title": "Outcomes of extended-spectrum beta-lactamases producing Enterobacteriaceae colonization among patients abdominal surgery patients",
@@ -339,7 +368,8 @@
       "J Juntong",
       "P Limpavitayaporn"
     ],
-    "pmid": "31481134"
+    "pmid": "31481134",
+    "retracted": false
   },
   {
     "title": "Antibiotic prophylaxis with piperacillin-tazobactam reduces postoperative infectious complication after pancreatic surgery: an interventional, non-randomized study",
@@ -352,7 +382,8 @@
       "L Scarlini",
       "G Montagnini"
     ],
-    "pmid": "33095107"
+    "pmid": "33095107",
+    "retracted": false
   },
   {
     "title": "Risk factors and impact of perioperative prophylaxis on the risk of extendedspectrum beta-lactamase-producing Enterobacteriaceae-related infection among carriers following liver transplantation",
@@ -365,7 +396,8 @@
       "M Giabicani",
       "B Grigoresco"
     ],
-    "pmid": "32217945"
+    "pmid": "32217945",
+    "retracted": false
   },
   {
     "title": "Risk factors for infection with carbapenem-resistant Klebsiella pneumoniae after liver transplantation: the importance of pre-and posttransplant colonization",
@@ -378,7 +410,8 @@
       "F Cristini",
       "F Tumietto"
     ],
-    "pmid": "25754742"
+    "pmid": "25754742",
+    "retracted": false
   },
   {
     "title": "The impact of carbapenemase-producing Enterobacteriaceae colonization on infection risk after liver transplantation: a prospective observational cohort study",
@@ -391,7 +424,8 @@
       "S Coladonato",
       "R Pascale"
     ],
-    "pmid": "31039445"
+    "pmid": "31039445",
+    "retracted": false
   },
   {
     "title": "Carbapenem-resistant Acinetobacter baumannii acquired before liver transplantation: impact on recipient outcomes",
@@ -404,7 +438,8 @@
       "L Oliveira",
       "A Machado"
     ],
-    "pmid": "26684547"
+    "pmid": "26684547",
+    "retracted": false
   },
   {
     "title": "What is the evidence base of used aggregated antibiotic resistance percentages to change empirical antibiotic treatment? A scoping review",
@@ -417,7 +452,8 @@
       "M Hulscher",
       "E Adang"
     ],
-    "pmid": "34906718"
+    "pmid": "34906718",
+    "retracted": false
   },
   {
     "title": "Surgical antibiotic prophylaxis in patients colonized with multidrug-resistant Gram-negative bacteria: Practical and conceptual aspects",
@@ -428,7 +464,8 @@
       "A Nutman",
       "Y Carmeli"
     ],
-    "pmid": "33534884"
+    "pmid": "33534884",
+    "retracted": false
   },
   {
     "title": "Classifying antibiotics in the WHO essential Medicines list for optimal use-be AWaRe",
@@ -441,13 +478,15 @@
       "S Gandra",
       "S Mathur"
     ],
-    "pmid": "29303731"
+    "pmid": "29303731",
+    "retracted": false
   },
   {
     "title": "WHO access, watch, reserve, classification of antibiotics for evaluation and monitoring of use",
     "doi": null,
     "authors": [],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "European society of clinical microbiology and infectious diseases (ESCMID) guidelines for the treatment of infections caused by multidrug-resistant gram-negative bacilli (endorsed by European society of intensive care medicine)",
@@ -460,7 +499,8 @@
       "R Bitterman",
       "R Bonomo"
     ],
-    "pmid": "34923128"
+    "pmid": "34923128",
+    "retracted": false
   },
   {
     "title": "Personalized ertapenem prophylaxis for carriers of extended-spectrum beta-lactamase-producing Enterobacteriaceae undergoing colorectal surgery",
@@ -473,7 +513,8 @@
       "F Ris",
       "C Fankhauser-Rodriguez"
     ],
-    "pmid": "31613316"
+    "pmid": "31613316",
+    "retracted": false
   },
   {
     "title": "The effect of prophylaxis with ertapenem versus cefuroxime/metronidazole on intestinal carriage of carbapenem-resistant or third-generationcephalosporin-resistant Enterobacterales after colorectal surgery",
@@ -486,7 +527,8 @@
       "S Frenk",
       "S Harbarth"
     ],
-    "pmid": "33588061"
+    "pmid": "33588061",
+    "retracted": false
   },
   {
     "title": "Surveillance culture for multidrug-resistant gram-negative bacteria: Performance in liver transplant recipients",
@@ -499,7 +541,8 @@
       "L De Oliveira",
       "L Machado"
     ],
-    "pmid": "28254253"
+    "pmid": "28254253",
+    "retracted": false
   },
   {
     "title": "Impact of pre-transplant carbapenem-resistant Enterobacterales colonization and/or infection on solid organ transplant outcomes",
@@ -511,7 +554,8 @@
       "M Mazumdar",
       "Rana Patel"
     ],
-    "pmid": "33527453"
+    "pmid": "33527453",
+    "retracted": false
   },
   {
     "title": "Management of multidrug resistant Gram-negative bacilli infections in solid organ transplant recipients: SET/GESITRA-SEIMC/REIPI recommendations",
@@ -524,7 +568,8 @@
       "E Fortún",
       "J Gudiol"
     ],
-    "pmid": "28811074"
+    "pmid": "28811074",
+    "retracted": false
   },
   {
     "title": "Detecting carbapenem-resistant Acinetobacter baumannii (CRAB) carriage: which body site should be cultured?",
@@ -537,7 +582,8 @@
       "D Schwartz",
       "D Carmeli"
     ],
-    "pmid": "32618523"
+    "pmid": "32618523",
+    "retracted": false
   },
   {
     "title": "Duration of colonization by extended-spectrum beta-lactamase-producing Enterobacteriaceae after hospital discharge",
@@ -550,7 +596,8 @@
       "E Andremont",
       "A Lucet"
     ],
-    "pmid": "22998785"
+    "pmid": "22998785",
+    "retracted": false
   },
   {
     "title": "Genomic surveillance reveals diversity of multidrugresistant organism colonization and infection: a prospective cohort study in liver transplant recipients",
@@ -563,7 +610,8 @@
       "S Ferguson",
       "G Korakavi"
     ],
-    "pmid": "29718144"
+    "pmid": "29718144",
+    "retracted": false
   },
   {
     "title": "Strategies to prevent surgical site infections in acute care hospitals: 2014 update",
@@ -576,7 +624,8 @@
       "E Dellinger",
       "L Greene"
     ],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "Prevention and treatment of surgical site infection: Summary of NICE guidance",
@@ -589,7 +638,8 @@
       "D Worster",
       "E Gautam-Aitken"
     ],
-    "pmid": "18957455"
+    "pmid": "18957455",
+    "retracted": false
   },
   {
     "title": "Best practice statement on urologic procedures and antimicrobial prophylaxis",
@@ -600,25 +650,29 @@
       "J Sanchez",
       "L Kavoussi"
     ],
-    "pmid": "31441676"
+    "pmid": "31441676",
+    "retracted": false
   },
   {
     "title": "Scottish Intercollegiate Guidelines Network (SIGN)",
     "doi": null,
     "authors": [],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "Preventing surgical site infectionskey recommendations for practice",
     "doi": null,
     "authors": [],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "Health UDo. UK Department of Health Care bundle to prevent surgical site infection",
     "doi": null,
     "authors": [],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "Evidence-based update to the U.S. Centers for disease control and prevention and healthcare infection control practices advisory Committee guideline for the prevention of surgical site infection: Developmental process",
@@ -626,7 +680,8 @@
     "authors": [
       "S Berríos-Torres"
     ],
-    "pmid": "26891203"
+    "pmid": "26891203",
+    "retracted": false
   },
   {
     "title": "Timing of surgical antibiotic prophylaxis and the risk of surgical site infection",
@@ -639,7 +694,8 @@
       "L Graham",
       "W Henderson"
     ],
-    "pmid": "23552769"
+    "pmid": "23552769",
+    "retracted": false
   },
   {
     "title": "Prolonged antibiotic prophylaxis after cardiovascular surgery and its effect on surgical site infections and antimicrobial resistance",
@@ -650,7 +706,8 @@
       "D Lichtenberg",
       "Y Carmeli"
     ],
-    "pmid": "31017647"
+    "pmid": "31017647",
+    "retracted": false
   },
   {
     "title": "Association of duration and type of surgical prophylaxis with antimicrobialassociated adverse events",
@@ -663,7 +720,8 @@
       "K Wyatt",
       "C Gupta"
     ],
-    "pmid": "31017647"
+    "pmid": "31017647",
+    "retracted": false
   },
   {
     "title": "Effect of postoperative continuation of antibiotic prophylaxis on the incidence of surgical site infection: a systematic review and meta-analysis",
@@ -676,7 +734,8 @@
       "M Egger",
       "G Salanti"
     ],
-    "pmid": "32470329"
+    "pmid": "32470329",
+    "retracted": false
   },
   {
     "title": "Effect of antimicrobial prophylaxis duration on health care-associated infections after clean orthopedic surgery: a cluster randomized trial",
@@ -689,7 +748,8 @@
       "F Tokimura",
       "Y Tajiri"
     ],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "Does duration of perioperative antibiotic prophylaxis matter in cardiac surgery? A systematic review and meta-analysis",
@@ -699,13 +759,15 @@
       "J Johnstone",
       "M Loeb"
     ],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": null,
     "doi": "10.1097/SLA.0b013e318214b7e4",
     "authors": [],
-    "pmid": "21412147"
+    "pmid": "21412147",
+    "retracted": false
   },
   {
     "title": "Perioperative antibiotic prophylaxis to prevent surgical site infections in solid organ transplantation",
@@ -715,7 +777,8 @@
       "E Blumberg",
       "L Abbo"
     ],
-    "pmid": "28614192"
+    "pmid": "28614192",
+    "retracted": false
   },
   {
     "title": "Multidrug-resistant bacterial infections after liver transplantation: an ever-growing challenge",
@@ -724,7 +787,8 @@
       "G Santoro-Lopes",
       "E De Gouvêa"
     ],
-    "pmid": "24876740"
+    "pmid": "24876740",
+    "retracted": false
   },
   {
     "title": "Multidrug-resistant gramnegative bacteria infections in solid organ transplantation",
@@ -734,7 +798,8 @@
       "C Van Delden",
       "Practice Astidco"
     ],
-    "pmid": "23464996"
+    "pmid": "23464996",
+    "retracted": false
   },
   {
     "title": "The global challenge of carbapenem-resistant Enterobacteriaceae in transplant recipients and patients with hematologic malignancies",
@@ -744,7 +809,8 @@
       "S Jenkins",
       "T Walsh"
     ],
-    "pmid": "24463280"
+    "pmid": "24463280",
+    "retracted": false
   },
   {
     "title": "Extensively drug-resistant Pseudomonas aeruginosa bacteremia in solid organ transplant recipients",
@@ -757,7 +823,8 @@
       "C Baliellas",
       "J Gonz Alez-Costello"
     ],
-    "pmid": "25119130"
+    "pmid": "25119130",
+    "retracted": false
   },
   {
     "title": "Changing trends in the aetiology, treatment and outcomes of bloodstream infection occurring in the first year after solid organ transplantation: a single-centre prospective cohort study",
@@ -769,7 +836,8 @@
       "A Llad O L, Manonelles",
       "J Gonz Alez"
     ],
-    "pmid": "28500792"
+    "pmid": "28500792",
+    "retracted": false
   },
   {
     "title": "Multidrug-resistant organisms in liver transplant: Mitigating risk and managing infections",
@@ -778,7 +846,8 @@
       "J Hand",
       "G Patel"
     ],
-    "pmid": "27228555"
+    "pmid": "27228555",
+    "retracted": false
   },
   {
     "title": "Multidrug resistant gram-negative bacilli as predominant bacteremic pathogens in liver transplant recipients",
@@ -791,7 +860,8 @@
       "C Jia",
       "W Wang"
     ],
-    "pmid": "19638006"
+    "pmid": "19638006",
+    "retracted": false
   },
   {
     "title": "Development of a risk prediction model for carbapenem-resistant Enterobacteriaceae infection after liver transplantation: a multinational cohort study",
@@ -804,7 +874,8 @@
       "A Rubin",
       "A Mularoni"
     ],
-    "pmid": "33564840"
+    "pmid": "33564840",
+    "retracted": false
   },
   {
     "title": "The influence of carbapenem resistance on mortality in solid organ transplant recipients with Acinetobacter baumannii infection",
@@ -817,7 +888,8 @@
       "S Basto",
       "R Gonçalves"
     ],
-    "pmid": "23237530"
+    "pmid": "23237530",
+    "retracted": false
   },
   {
     "title": "Epidemiology, clinical characteristics and outcomes of extensively drug-resistant Acinetobacter baumannii infections among solid organ transplant recipients",
@@ -830,7 +902,8 @@
       "F Silveira",
       "R Massih"
     ],
-    "pmid": "23285002"
+    "pmid": "23285002",
+    "retracted": false
   },
   {
     "title": "Pseudomonas Aeruginosa infection among liver transplant recipients: a clinical analysis of 15 cases",
@@ -841,7 +914,8 @@
       "Q Wan",
       "Q Ye"
     ],
-    "pmid": "27569958"
+    "pmid": "27569958",
+    "retracted": false
   },
   {
     "title": "Multidrug-resistant gram-negative bacterial infections in solid organ transplant recipients-guidelines from the American society of transplantation infectious diseases community of practice",
@@ -851,7 +925,8 @@
       "G Patel",
       "Practice Astidco"
     ],
-    "pmid": "31102483"
+    "pmid": "31102483",
+    "retracted": false
   },
   {
     "title": "ESBL-producing Enterobacteriaceae-related urinary tract infections in kidney transplant recipients: incidence and risk factors for recurrence",
@@ -864,7 +939,8 @@
       "O Lortholary",
       "C Legendre"
     ],
-    "pmid": "26024285"
+    "pmid": "26024285",
+    "retracted": false
   },
   {
     "title": "Worldwide clinical practices in perioperative antibiotic therapy for lung transplantation",
@@ -877,7 +953,8 @@
       "Le Pavec",
       "J Kessler"
     ],
-    "pmid": "32349719"
+    "pmid": "32349719",
+    "retracted": false
   },
   {
     "title": "Antimicrobial prophylaxis in liver transplant patients-A multicenter survey endorsed by the European Liver and Intestine Transplant Association",
@@ -890,7 +967,8 @@
       "D Vogelaers",
       "X Rogiers"
     ],
-    "pmid": "19793076"
+    "pmid": "19793076",
+    "retracted": false
   },
   {
     "title": "Amikacin prophylaxis and risk factors for surgical site infection after kidney transplantation",
@@ -903,7 +981,8 @@
       "F De Paula",
       "F Spadão"
     ],
-    "pmid": "25254907"
+    "pmid": "25254907",
+    "retracted": false
   },
   {
     "title": "Carbapenemase-producing Klebsiella pneumoniae colonization and infection in solid organ transplant recipients: a single-center, retrospective study",
@@ -916,7 +995,8 @@
       "C Filippini",
       "R Angilletta"
     ],
-    "pmid": "34835398"
+    "pmid": "34835398",
+    "retracted": false
   },
   {
     "title": "Complications after prostate biopsy: data from SEER-Medicare",
@@ -928,7 +1008,8 @@
       "W Ricker",
       "E Schaeffer"
     ],
-    "pmid": "21944136"
+    "pmid": "21944136",
+    "retracted": false
   },
   {
     "title": "Infective complications after prostate biopsy: outcome of the Global Prevalence Study of Infections in Urology (GPIU) 2010 and 2011, a prospective multinational multicentre prostate biopsy study",
@@ -941,7 +1022,8 @@
       "M Çek",
       "M Grabe"
     ],
-    "pmid": "22704727"
+    "pmid": "22704727",
+    "retracted": false
   },
   {
     "title": "Antibiotic prophylaxis for transrectal prostate biopsy",
@@ -951,7 +1033,8 @@
       "O Clark",
       "Rodrigues Netto"
     ],
-    "pmid": "21563156"
+    "pmid": "21563156",
+    "retracted": false
   },
   {
     "title": "Prevalence of antimicrobial resistance in intestinal flora of patients undergoing prostatic biopsy: Implications for prophylaxis and treatment of infections after biopsy",
@@ -961,7 +1044,8 @@
       "G Rao",
       "P Nielsen"
     ],
-    "pmid": "20346055"
+    "pmid": "20346055",
+    "retracted": false
   },
   {
     "title": "Prevalence and significance of fluoroquinolone resistant Escherichia coli in patients undergoing transrectal ultrasound guided prostate needle biopsy",
@@ -973,7 +1057,8 @@
       "A Peterson",
       "E Osann"
     ],
-    "pmid": "21334021"
+    "pmid": "21334021",
+    "retracted": false
   },
   {
     "title": "Infection after transrectal ultrasonography-guided prostate biopsy: increased relative risks after recent international travel or antibiotic use",
@@ -986,7 +1071,8 @@
       "J Pilcher",
       "R Kirby"
     ],
-    "pmid": "22040349"
+    "pmid": "22040349",
+    "retracted": false
   },
   {
     "title": "Ertapenem prophylaxis reduces sepsis after transrectal biopsy of the prostate",
@@ -996,7 +1082,8 @@
       "R Studd",
       "T Blackmore"
     ],
-    "pmid": "24894854"
+    "pmid": "24894854",
+    "retracted": false
   },
   {
     "title": "Transrectal prostate biopsyassociated prophylaxis and infectious complications: report of a query to the emerging infections network of the infectious diseases society of America",
@@ -1006,7 +1093,8 @@
       "P Polgreen",
       "S Beekmann"
     ],
-    "pmid": "26034753"
+    "pmid": "26034753",
+    "retracted": false
   },
   {
     "title": "Efficacy and safety of fosfomycin-trometamol in the prophylaxis for transrectal prostate biopsy. Prospective randomized comparison with ciprofloxacin",
@@ -1019,7 +1107,8 @@
       "Ram De Fata",
       "F Angulo"
     ],
-    "pmid": "24775812"
+    "pmid": "24775812",
+    "retracted": false
   },
   {
     "title": "High prevalence of extended-spectrum beta-lactamase-producing Enterobacteriaceae in bacteremia after transrectal ultrasound-guided prostate biopsy: a need for changing preventive protocol",
@@ -1032,7 +1121,8 @@
       "R Terradas",
       "Salvad O M"
     ],
-    "pmid": "19811805"
+    "pmid": "19811805",
+    "retracted": false
   },
   {
     "title": "Modification of antimicrobial prophylaxis based on rectal culture results to prevent fluoroquinolone-resistant Escherichia coli infections after prostate biopsy",
@@ -1045,7 +1135,8 @@
       "T Zabarsky",
       "H Zhu"
     ],
-    "pmid": "23917913"
+    "pmid": "23917913",
+    "retracted": false
   },
   {
     "title": "Rectal swab culture-directed antimicrobial prophylaxis for prostate biopsy and risk of postprocedure infection: a cohort study",
@@ -1058,7 +1149,8 @@
       "G Pareek",
       "S Schiff"
     ],
-    "pmid": "25458193"
+    "pmid": "25458193",
+    "retracted": false
   },
   {
     "title": "Routine ertapenem prophylaxis for transrectal ultrasound guided prostate biopsy does not select for carbapenem resistant organisms: a prospective cohort study",
@@ -1070,7 +1162,8 @@
       "R Studd",
       "T Blackmore"
     ],
-    "pmid": "28288838"
+    "pmid": "28288838",
+    "retracted": false
   },
   {
     "title": "The role of targeted prophylactic antimicrobial therapy before transrectal ultrasonography-guided prostate biopsy in reducing infection rates: a systematic review",
@@ -1081,7 +1174,8 @@
       "A Basarab",
       "T Dudderidge"
     ],
-    "pmid": "26709240"
+    "pmid": "26709240",
+    "retracted": false
   },
   {
     "title": "The effectiveness of targeted relative to empiric prophylaxis on infectious complications after transrectal ultrasound-guided prostate biopsy: a metaanalysis",
@@ -1094,7 +1188,8 @@
       "Sar Doi",
       "M Roberts"
     ],
-    "pmid": "29453690"
+    "pmid": "29453690",
+    "retracted": false
   },
   {
     "title": "Antibiotic prophylaxis for the prevention of infectious complications following prostate biopsy: a systematic review and meta-analysis",
@@ -1107,7 +1202,8 @@
       "M Omar",
       "S Maclennan"
     ],
-    "pmid": "32105195"
+    "pmid": "32105195",
+    "retracted": false
   },
   {
     "title": "Reducing infectious complications following transrectal ultrasound-guided prostate biopsy: a systematic review",
@@ -1117,7 +1213,8 @@
       "N Singla",
       "C Roehrborn"
     ],
-    "pmid": "27601966"
+    "pmid": "27601966",
+    "retracted": false
   },
   {
     "title": "A prospective randomized trial comparing a combined regimen of amikacin and levofloxacin to levofloxacin alone as prophylaxis in transrectal prostate needle biopsy",
@@ -1130,7 +1227,8 @@
       "A Sengiku",
       "R Iguchi"
     ],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "Trial Comparing a Combined regimen of amikacin and ciprofloxacin to ciprofloxacin alone as transrectal prostate biopsy prophylaxis in the era of high fluoroquinoloneresistant rectal flora",
@@ -1143,7 +1241,8 @@
       "E Hwang",
       "J Kim"
     ],
-    "pmid": "29629517"
+    "pmid": "29629517",
+    "retracted": false
   },
   {
     "title": "Rectal culture-based versus empirical antibiotic prophylaxis to prevent infectious complications in men undergoing transrectal prostate biopsy: a randomized, non-blinded multicenter trial",
@@ -1156,13 +1255,15 @@
       "F Delaere",
       "M Van Leeuwen"
     ],
-    "pmid": "36419331"
+    "pmid": "36419331",
+    "retracted": false
   },
   {
     "title": "EAU guidelines on urological infections",
     "doi": null,
     "authors": [],
-    "pmid": null
+    "pmid": null,
+    "retracted": false
   },
   {
     "title": "Antibiotic prophylaxis versus no antibiotic prophylaxis in transperineal prostate biopsies (NORAPP): a randomised, open-label, non-inferiority trial",
@@ -1175,7 +1276,8 @@
       "A Magheli",
       "J Busch"
     ],
-    "pmid": "35839791"
+    "pmid": "35839791",
+    "retracted": false
   },
   {
     "title": "Clinical practice guideline for the management of asymptomatic bacteriuria: 2019 Update by the Infectious Diseases Society of America",
@@ -1188,7 +1290,8 @@
       "G Demuri",
       "D Drekonja"
     ],
-    "pmid": "31506700"
+    "pmid": "31506700",
+    "retracted": false
   },
   {
     "title": "Bacteria of preoperative urinary tract infections contaminate the surgical fields and develop surgical site infections in urological operations",
@@ -1201,7 +1304,8 @@
       "H Tsukino",
       "M Nagano"
     ],
-    "pmid": "15509195"
+    "pmid": "15509195",
+    "retracted": false
   },
   {
     "title": "Trends in antibiotic resistance in urologic practice",
@@ -1211,7 +1315,8 @@
       "E Cramp",
       "T Vaghela"
     ],
-    "pmid": "28723468"
+    "pmid": "28723468",
+    "retracted": false
   },
   {
     "title": "Therapeutic failures of targeted antibiotic prophylaxis in urology",
@@ -1224,7 +1329,8 @@
       "S Donat",
       "P Blanchet"
     ],
-    "pmid": "34787746"
+    "pmid": "34787746",
+    "retracted": false
   },
   {
     "title": "Perioperative antimicrobial prophylaxis for intra-abdominal surgery in patients with cancer: a retrospective study comparing ertapenem and nonertapenem antibiotics",
@@ -1237,7 +1343,8 @@
       "B Feig",
       "T Aloia"
     ],
-    "pmid": "24114052"
+    "pmid": "24114052",
+    "retracted": false
   },
   {
     "title": "Ertapenem prophylaxis of surgical site infections in elective colorectal surgery in China: a multicentre, randomized, double-blind, active-controlled study",
@@ -1250,7 +1357,8 @@
       "W Zhu",
       "J Shen"
     ],
-    "pmid": "25151205"
+    "pmid": "25151205",
+    "retracted": false
   },
   {
     "title": "Oral decontamination with colistin plus neomycin in solid organ transplant recipients colonized by multidrugresistant Enterobacterales: a multicentre, randomized, controlled, openlabel, parallel-group clinical trial",
@@ -1263,7 +1371,8 @@
       "J Escudero-Sanchez",
       "R Moreno"
     ],
-    "pmid": "33359562"
+    "pmid": "33359562",
+    "retracted": false
   },
   {
     "title": "Randomized clinical trial of selective decontamination of the digestive tract in elective colorectal cancer surgery (SELECT trial)",
@@ -1276,7 +1385,8 @@
       "Mlm Van Doorn-Schepens",
       "A Budding"
     ],
-    "pmid": "30802304"
+    "pmid": "30802304",
+    "retracted": false
   },
   {
     "title": "Association of mechanical bowel preparation and oral antibiotics before elective colorectal surgery with surgical site infection: a network metaanalysis",
@@ -1289,7 +1399,8 @@
       "T El-Khoury",
       "A Richardson"
     ],
-    "pmid": "30646234"
+    "pmid": "30646234",
+    "retracted": false
   },
   {
     "title": "Preoperative oral antibiotics and surgical-site infections in colon surgery (ORALEV): a multicentre, single-blind, pragmatic, randomised controlled trial",
@@ -1302,7 +1413,8 @@
       "E Fraccalvieri",
       "D Muinelo-Lorenzo"
     ],
-    "pmid": "32325012"
+    "pmid": "32325012",
+    "retracted": false
   },
   {
     "title": "A bundle that includes active surveillance, contact precaution for carriers, and cefazolin-based antimicrobial prophylaxis prevents methicillin-resistant Staphylococcus aureus infections in clean orthopedic surgery",
@@ -1315,7 +1427,8 @@
       "A Nakagawa",
       "S Nozima"
     ],
-    "pmid": "26521703"
+    "pmid": "26521703",
+    "retracted": false
   },
   {
     "title": "New WHO recommendations on intraoperative and postoperative measures for surgical site infection prevention: an evidence-based global perspective",
@@ -1328,7 +1441,8 @@
       "S De Jonge",
       "F De Vries"
     ],
-    "pmid": "27816414"
+    "pmid": "27816414",
+    "retracted": false
   },
   {
     "title": "Surgical antibiotic prophylaxis in an era of antibiotic resistance: common resistant bacteria and wider considerations for practice",
@@ -1341,6 +1455,7 @@
       "S Moonesinghe",
       "C Phillips"
     ],
-    "pmid": "34908856"
+    "pmid": "34908856",
+    "retracted": false
   }
 ]
