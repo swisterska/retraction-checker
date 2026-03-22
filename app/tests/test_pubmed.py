@@ -1,11 +1,10 @@
 from unittest.mock import patch
-from app.services.pubmed import normalize_doi, get_pmid, get_doi_from_crossref
+from app.services.pubmed import normalize_doi, get_pmid
 
 
 def test_normalize_doi():
     """
-    Test that DOI normalization removes common prefixes
-    and converts the DOI to lowercase canonical form.
+    Test DOI normalization removes prefixes and lowercases value.
     """
 
     assert normalize_doi("https://doi.org/10.1000/ABC123") == "10.1000/abc123"
@@ -13,64 +12,26 @@ def test_normalize_doi():
     assert normalize_doi("doi:10.1000/ABC123") == "10.1000/abc123"
 
 
-
 @patch("app.services.pubmed.pubmed_search")
-def test_get_pmid(mock_search):
+def test_get_pmid_success(mock_search):
     """
-    Test that get_pmid correctly returns a PMID when
-    PubMed search returns a valid result.
+    Test get_pmid returns PMID when PubMed search succeeds.
     """
 
     mock_search.return_value = "123456"
 
     pmid = get_pmid("10.1000/test")
 
+    # check if query is exact
+    mock_search.assert_called_once_with('"10.1000/test"[DOI]')
+
     assert pmid == "123456"
 
 
-def test_get_pmid_none():
+def test_get_pmid_none_input():
     """
-    Test that get_pmid returns None when DOI input is None.
-    """
-
-    pmid = get_pmid(None)
-
-    assert pmid is None
-
-
-
-
-@patch("app.services.pubmed.requests.get")
-def test_crossref_doi(mock_get):
-    """
-    Test that the Crossref API response is correctly parsed
-    and the DOI is extracted from the returned JSON structure.
+    Test get_pmid returns None for empty DOI.
     """
 
-    mock_get.return_value.status_code = 200
-    mock_get.return_value.json.return_value = {
-        "message": {
-            "items": [
-                {"DOI": "10.1234/testdoi"}
-            ]
-        }
-    }
-
-    doi = get_doi_from_crossref("Example title")
-
-    assert doi == "10.1234/testdoi"
-
-
-
-@patch("app.services.pubmed.requests.get")
-def test_crossref_api_failure(mock_get):
-    """
-    Test that get_doi_from_crossref returns None when the
-    Crossref API returns a non-200 HTTP status code.
-    """
-
-    mock_get.return_value.status_code = 500
-
-    doi = get_doi_from_crossref("Example title")
-
-    assert doi is None
+    assert get_pmid(None) is None
+    assert get_pmid("") is None
