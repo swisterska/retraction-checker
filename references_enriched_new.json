@@ -1457,5 +1457,12 @@
     ],
     "pmid": "34908856",
     "retracted": false
+  },
+  {
+    "title": "TEST",
+    "doi": "10.1007/s00500-022-06794-6",
+    "authors": [],
+    "pmid": "42047027",
+    "retracted": true
   }
 ]

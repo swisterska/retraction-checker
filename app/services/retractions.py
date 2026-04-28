@@ -1,17 +1,16 @@
 import pandas as pd
+import requests
 import os
 import time
-from Bio import Entrez
+
+
 
 
 # -------------------------
-# AUTO UPDATE (PubMed)
+# AUTO UPDATE
 # -------------------------
 
 def should_update(path: str, max_age_hours: int = 24) -> bool:
-    """
-    Check if CSV should be refreshed.
-    """
     if not os.path.exists(path):
         return True
 
@@ -19,71 +18,78 @@ def should_update(path: str, max_age_hours: int = 24) -> bool:
     return age > max_age_hours * 3600
 
 
-def update_retractions_from_pubmed(path: str, max_results: int = 5000):
+# -------------------------
+# FETCH FULL DATASET (Crossref API)
+# -------------------------
+
+def update_retractions_from_api(save_path: str, rows_per_request: int = 1000):
     """
-    Fetch retracted publications from PubMed and save as CSV.
+    Fetch ALL retracted publications using Crossref cursor pagination.
     """
+    print("Updating FULL retractions dataset from Crossref API...")
 
-    Entrez.email = "278448@student.pwr.edu.pl"
+    url = "https://api.crossref.org/works"
 
-    print("Updating retractions from PubMed...")
+    cursor = "*"
+    all_dois = set()
+    total_fetched = 0
 
-    try:
-        # 1. search
-        handle = Entrez.esearch(
-            db="pubmed",
-            term="Retracted Publication[PT]",
-            retmax=max_results
-        )
-        record = Entrez.read(handle)
-        handle.close()
+    while True:
+        params = {
+            "filter": "update-type:retraction",
+            "rows": rows_per_request,
+            "cursor": cursor
+        }
 
-        ids = record["IdList"]
+        response = requests.get(url, params=params, timeout=30)
 
-        print("Found:", len(ids), "records")
+        if response.status_code != 200:
+            raise RuntimeError(f"API error: {response.status_code}")
 
-        if not ids:
-            print("No retractions found — skipping update")
-            return
+        data = response.json()
+        items = data["message"]["items"]
 
-        # 2. fetch details
-        handle = Entrez.efetch(
-            db="pubmed",
-            id=",".join(ids),
-            rettype="medline",
-            retmode="text"
-        )
+        if not items:
+            break
 
-        text = handle.read()
-        handle.close()
+        for item in items:
+            doi = item.get("DOI")
+            if doi:
+                all_dois.add(doi.lower())
 
-        # 3. extract DOIs
-        dois = []
+        total_fetched += len(items)
+        print(f"Fetched: {total_fetched} | Unique DOIs: {len(all_dois)}")
 
-        for line in text.split("\n"):
-            if line.startswith("AID") and "[doi]" in line:
-                doi = (
-                    line.replace("AID -", "")
-                    .replace("[doi]", "")
-                    .strip()
-                    .lower()
-                )
-                dois.append(doi)
+        # next cursor
+        cursor = data["message"]["next-cursor"]
 
-        if not dois:
-            print("No DOI found in fetched data — skipping save")
-            return
+        # safety break (optional)
+        if total_fetched > 100000:
+            print("Stopping early (safety limit)")
+            break
 
-        # 4. save CSV
-        df = pd.DataFrame({"doi": dois})
-        df.to_csv(path, index=False)
+    df = pd.DataFrame({"doi": list(all_dois)})
+    df.to_csv(save_path, index=False)
 
-        print("Saved retractions:", len(dois))
+    print(f"Saved FULL dataset: {len(df)} retractions → {save_path}")
 
-    except Exception as e:
-        print("PubMed update failed:", e)
-        print("Using existing CSV if available.")
 
+
+
+def update_retractions_from_gitlab(save_path: str):
+    print("Updating dataset from GitLab...")
+
+    url = "https://gitlab.com/crossref/retraction-watch-data/-/raw/main/retraction_watch.csv"
+
+    response = requests.get(url, timeout=30)
+
+    if response.status_code != 200:
+        raise RuntimeError(f"Download failed: {response.status_code}")
+
+    with open(save_path, "wb") as f:
+        f.write(response.content)
+
+    print("Saved retractions.csv from GitLab")
 
 # -------------------------
 # MAIN SERVICE
@@ -94,16 +100,15 @@ class RetractionService:
         self.df = pd.read_csv(csv_path, encoding="utf-8-sig")
 
         # find DOI column
-        doi_column = None
-        for col in self.df.columns:
-            if "doi" in col.lower():
-                doi_column = col
-                break
+        
+        doi_column = "OriginalPaperDOI"
 
-        if not doi_column:
-            raise ValueError("No DOI column found in CSV")
+        if doi_column not in self.df.columns:
+            raise ValueError("OriginalPaperDOI column not found")
 
-        # normalize DOIs
+        
+
+        # normalize
         self.df["doi"] = (
             self.df[doi_column]
             .astype(str)
@@ -115,14 +120,11 @@ class RetractionService:
             .str.replace("doi:", "", regex=False)
         )
 
-        # remove invalid
         self.df = self.df[self.df["doi"] != "nan"]
         self.df = self.df[self.df["doi"] != "doi"]
 
-        # debug
         print("Loaded DOIs:", list(self.df["doi"])[:5])
 
-        # fast lookup
         self.doi_set = set(self.df["doi"])
 
     def is_retracted(self, doi: str | None) -> bool:
@@ -145,7 +147,6 @@ class RetractionService:
 
         for ref in references:
             doi = ref.get("doi")
-
             is_retracted = self.is_retracted(doi)
 
             new_ref = ref.copy()
