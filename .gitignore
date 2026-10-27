@@ -1,8 +1,25 @@
+
 .venv/
 __pycache__/
-*.pyc
-uploads/
-.env
+*.py[cod]
 .DS_Store
+.env
+.env.*
+!.env.example
+
+# Local databases
+instance/
+app/instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded and generated files
+uploads/
 references.json
 references_enriched.json
+
+# Python test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
