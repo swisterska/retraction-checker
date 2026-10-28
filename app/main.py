@@ -5,13 +5,14 @@ from app.routes import register_routes
 from app.database import db
 
 
-def create_app():
+
+def create_app(test_config=None):
     app = Flask(
-    __name__,
-    instance_path=os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "instance")
-    ),
-)
+        __name__,
+        instance_path=os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "instance")
+        ),
+    )
 
     os.makedirs(app.instance_path, exist_ok=True)
 
@@ -20,7 +21,8 @@ def create_app():
     )
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+    if test_config:
+        app.config.update(test_config)
 
     db.init_app(app)
 
