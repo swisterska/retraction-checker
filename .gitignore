@@ -23,3 +23,6 @@ references_enriched.json
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Generated analysis outputs
+outputs/

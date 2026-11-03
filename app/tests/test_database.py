@@ -11,6 +11,9 @@ def app():
     test_app = create_app({
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite://",
+        "SQLALCHEMY_BINDS": {
+            "users": "sqlite://",
+        },
     })
 
     with test_app.app_context():
@@ -51,6 +54,6 @@ def test_database_relationships(app):
         saved_reference = db.session.get(ExtractedReference, reference.id)
 
         assert saved_user is not None
-        assert saved_document.user_id == saved_user.id
         assert saved_reference.document_id == saved_document.id
-        assert saved_document.user.email == "database_test@example.com"
+        assert saved_user.email == "database_test@example.com"
+        assert saved_document.user_id == saved_user.id

@@ -9,6 +9,7 @@ def utc_now():
 
 
 class User(db.Model):
+    __bind_key__ = "users"
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -16,11 +17,6 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
 
-    documents = db.relationship(
-        "UploadedDocument",
-        back_populates="user",
-        cascade="all, delete-orphan",
-    )
 
 
 class UploadedDocument(db.Model):
@@ -29,9 +25,10 @@ class UploadedDocument(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(
         db.Integer,
-        db.ForeignKey("users.id"),
         nullable=False,
+        index=True,
     )
+
     filename = db.Column(db.String(255), nullable=False)
     upload_date = db.Column(db.DateTime, default=utc_now, nullable=False)
     processing_status = db.Column(
@@ -40,7 +37,6 @@ class UploadedDocument(db.Model):
         nullable=False,
     )
 
-    user = db.relationship("User", back_populates="documents")
     references = db.relationship(
         "ExtractedReference",
         back_populates="document",
@@ -125,9 +121,10 @@ class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(
         db.Integer,
-        db.ForeignKey("users.id"),
         nullable=False,
+        index=True,
     )
+
     document_id = db.Column(
         db.Integer,
         db.ForeignKey("uploaded_documents.id"),
@@ -138,7 +135,6 @@ class Notification(db.Model):
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     email_sent = db.Column(db.Boolean, default=False, nullable=False)
 
-    user = db.relationship("User", backref="notifications")
     document = db.relationship("UploadedDocument")
 
 

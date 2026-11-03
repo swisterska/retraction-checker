@@ -6,70 +6,91 @@ from app.models import (
     RetractedPublication,
     DetectionResult,
 )
+from app.services.doi import normalize_doi
 
 
-def save_analysis_results(user_id: int, filename: str, references: list[dict]):
-    """Save an analysed document, its references, and detection results."""
+def save_analysis_results(
+    user_id: int,
+    filename: str,
+    references: list[dict],
+) -> int:
+    """Atomically save a document, its references, and detection results."""
 
-    document = UploadedDocument(
-        user_id=user_id,
-        filename=filename,
-        processing_status="completed",
-    )
-    db.session.add(document)
-    db.session.flush()
-
-    for ref in references:
-        reference = ExtractedReference(
-            document_id=document.id,
-            raw_reference=ref.get("raw_reference"),
-            title=ref.get("title"),
-            authors=", ".join(ref.get("authors", []))
-            if isinstance(ref.get("authors"), list)
-            else ref.get("authors"),
-            year=ref.get("year"),
-            doi=ref.get("doi"),
-            pmid=ref.get("pmid"),
+    try:
+        document = UploadedDocument(
+            user_id=user_id,
+            filename=filename,
+            processing_status="completed",
         )
-        db.session.add(reference)
+        db.session.add(document)
         db.session.flush()
 
-        retracted_publication = None
+        for ref in references:
+            doi = normalize_doi(ref.get("doi"))
 
-        if ref.get("retracted") and ref.get("doi"):
-            doi = ref["doi"].strip().lower()
-            reason = ref.get("retraction_reason")
+            reference = ExtractedReference(
+                document_id=document.id,
+                raw_reference=ref.get("raw_reference"),
+                title=ref.get("title"),
+                authors=(
+                    ", ".join(ref.get("authors", []))
+                    if isinstance(ref.get("authors"), list)
+                    else ref.get("authors")
+                ),
+                year=ref.get("year"),
+                doi=doi,
+                pmid=ref.get("pmid"),
+            )
+            db.session.add(reference)
+            db.session.flush()
 
-            retracted_publication = RetractedPublication.query.filter_by(
-                doi=doi
-            ).first()
+            retracted_publication = None
 
-            if retracted_publication is None:
-                retracted_publication = RetractedPublication(
-                    doi=doi,
-                    pmid=ref.get("pmid"),
-                    title=ref.get("title"),
-                    retraction_reason=reason,
-                    source="Retraction Watch",
+            if ref.get("retracted") and doi:
+                reason = ref.get("retraction_reason")
+
+                retracted_publication = (
+                    db.session.query(RetractedPublication)
+                    .filter_by(doi=doi)
+                    .first()
                 )
-                db.session.add(retracted_publication)
-                db.session.flush()
-            elif reason and not retracted_publication.retraction_reason:
-                # Fill in the reason if the publication already exists
-                # but its reason has not been saved yet.
-                retracted_publication.retraction_reason = reason
 
-        result = DetectionResult(
-            reference_id=reference.id,
-            retracted_publication_id=(
-                retracted_publication.id
-                if retracted_publication
-                else None
-            ),
-            is_retracted=bool(ref.get("retracted")),
-            detection_method="DOI match against Retraction Watch dataset",
-        )
-        db.session.add(result)
+                if retracted_publication is None:
+                    retracted_publication = RetractedPublication(
+                        doi=doi,
+                        pmid=ref.get("pmid"),
+                        title=ref.get("title"),
+                        retraction_reason=reason,
+                        source="Retraction Watch",
+                    )
+                    db.session.add(retracted_publication)
+                    db.session.flush()
 
-    db.session.commit()
-    return document.id
+                elif (
+                    reason
+                    and not retracted_publication.retraction_reason
+                ):
+                    retracted_publication.retraction_reason = reason
+
+            result = DetectionResult(
+                reference_id=reference.id,
+                retracted_publication_id=(
+                    retracted_publication.id
+                    if retracted_publication is not None
+                    else None
+                ),
+                is_retracted=bool(ref.get("retracted")),
+                detection_method=(
+                    "DOI match against Retraction Watch dataset"
+                ),
+            )
+            db.session.add(result)
+
+        document_id = document.id
+        db.session.commit()
+
+        return document_id
+
+    except Exception:
+        db.session.rollback()
+        raise

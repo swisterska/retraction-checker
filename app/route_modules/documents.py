@@ -3,77 +3,93 @@ from pathlib import Path
 from uuid import uuid4
 
 from flask import jsonify, request
+from sqlalchemy.orm import selectinload
 
 from app.database import db
 from app.models import (
-    User,
     UploadedDocument,
     ExtractedReference,
     DetectionResult,
 )
 from app.run_grobid_pipeline import process_pdf
 from app.services.database_service import save_analysis_results
+from app.route_modules.helpers import (
+    current_user_id,
+    login_required,
+)
 
 
-def register_routes(app):
+def owned_document(document_id, user_id):
+    """Return an owned document with all required related data."""
 
-    @app.errorhandler(413)
-    def request_entity_too_large(error):
-        return jsonify({
-            "status": "error",
-            "message": "File is too large. Maximum request size is 16 MB.",
-        }), 413
+    return (
+        UploadedDocument.query
+        .options(
+            selectinload(UploadedDocument.references)
+            .selectinload(ExtractedReference.detection_results)
+            .selectinload(DetectionResult.retracted_publication)
+        )
+        .filter_by(
+            id=document_id,
+            user_id=user_id,
+        )
+        .first()
+    )
 
-    @app.route("/")
-    def index():
-        return "<h1>System Retraction Checker is working</h1>"
 
-    @app.route("/api/test-analysis", methods=["POST"])
-    def test_analysis():
-        pdf_path = "uploads/testychat.pdf"
+def register_document_routes(app):
+    """Register document analysis and history routes."""
 
-        try:
-            references = process_pdf(pdf_path)
+    if app.config.get("APP_ENV") != "production":
 
-            test_email = "pipeline_test@example.com"
-            user = User.query.filter_by(email=test_email).first()
-
-            if user is None:
-                user = User(
-                    email=test_email,
-                    password_hash="development-test-account",
-                )
-                db.session.add(user)
-                db.session.commit()
-
-            document_id = save_analysis_results(
-                user_id=user.id,
-                filename="testychat.pdf",
-                references=references,
+        @app.route("/api/test-analysis", methods=["POST"])
+        @login_required
+        def test_analysis():
+            pdf_path = (
+                Path(app.root_path).parent
+                / "tests"
+                / "fixtures"
+                / "testychat.pdf"
             )
 
-            return jsonify({
-                "status": "success",
-                "document_id": document_id,
-                "references_processed": len(references),
-                "retracted_references": sum(
-                    1 for ref in references if ref.get("retracted")
-                ),
-            }), 200
+            if not pdf_path.is_file():
+                return jsonify({
+                    "status": "error",
+                    "message": "Test PDF was not found.",
+                }), 404
 
-        except Exception:
-            db.session.rollback()
-            app.logger.exception("Test PDF analysis failed")
-            return jsonify({
-                "status": "error",
-                "message": (
-                    "PDF analysis or database saving failed. "
-                    "Check the application logs."
-                ),
-            }), 500
+            try:
+                references = process_pdf(str(pdf_path))
+
+                document_id = save_analysis_results(
+                    user_id=current_user_id(),
+                    filename="testychat.pdf",
+                    references=references,
+                )
+
+                return jsonify({
+                    "status": "success",
+                    "document_id": document_id,
+                    "references_processed": len(references),
+                    "retracted_references": sum(
+                        1 for ref in references if ref.get("retracted")
+                    ),
+                }), 200
+
+            except Exception:
+                db.session.rollback()
+                app.logger.exception("Test PDF analysis failed")
+
+                return jsonify({
+                    "status": "error",
+                    "message": (
+                        "PDF analysis or database saving failed. "
+                        "Check the application logs."
+                    ),
+                }), 500
 
     @app.route("/api/analyze", methods=["POST"])
-
+    @login_required
     def analyze_pdf():
         if "file" not in request.files:
             return jsonify({
@@ -101,41 +117,32 @@ def register_routes(app):
         if file_header != b"%PDF-":
             return jsonify({
                 "status": "error",
-                "message": "The uploaded file does not appear to be a valid PDF.",
+                "message": (
+                    "The uploaded file does not appear to be a valid PDF."
+                ),
             }), 400
 
         upload_dir = Path(app.root_path).parent / "uploads"
         upload_dir.mkdir(parents=True, exist_ok=True)
 
-        safe_filename = f"{uuid4().hex}.pdf"
-        pdf_path = upload_dir / safe_filename
+        pdf_path = upload_dir / f"{uuid4().hex}.pdf"
 
         try:
             uploaded_file.save(pdf_path)
 
             references = process_pdf(str(pdf_path))
-
-            test_email = "pipeline_test@example.com"
-            user = User.query.filter_by(email=test_email).first()
-
-            if user is None:
-                user = User(
-                    email=test_email,
-                    password_hash="development-test-account",
-                )
-                db.session.add(user)
-                db.session.commit()
+            filename = Path(uploaded_file.filename).name
 
             document_id = save_analysis_results(
-                user_id=user.id,
-                filename=uploaded_file.filename,
+                user_id=current_user_id(),
+                filename=filename,
                 references=references,
             )
 
             return jsonify({
                 "status": "success",
                 "document_id": document_id,
-                "filename": uploaded_file.filename,
+                "filename": filename,
                 "references_processed": len(references),
                 "retracted_references": sum(
                     1 for ref in references if ref.get("retracted")
@@ -145,6 +152,7 @@ def register_routes(app):
         except Exception:
             db.session.rollback()
             app.logger.exception("PDF analysis failed")
+
             return jsonify({
                 "status": "error",
                 "message": (
@@ -155,13 +163,23 @@ def register_routes(app):
 
         finally:
             if pdf_path.exists():
-                pdf_path.unlink()
+                try:
+                    pdf_path.unlink()
+                except OSError:
+                    app.logger.exception(
+                        "Could not delete temporary PDF"
+                    )
 
-    
-    
-    @app.route("/api/documents/<int:document_id>/results", methods=["GET"])
+    @app.route(
+        "/api/documents/<int:document_id>/results",
+        methods=["GET"],
+    )
+    @login_required
     def get_document_results(document_id):
-        document = db.session.get(UploadedDocument, document_id)
+        document = owned_document(
+            document_id,
+            current_user_id(),
+        )
 
         if document is None:
             return jsonify({
@@ -177,9 +195,9 @@ def register_routes(app):
 
         for reference in document.references:
             detection = (
-                DetectionResult.query
-                .filter_by(reference_id=reference.id)
-                .first()
+                reference.detection_results[0]
+                if reference.detection_results
+                else None
             )
 
             is_retracted = (
@@ -238,12 +256,16 @@ def register_routes(app):
             "results": results,
         }), 200
 
-
-    
     @app.route("/api/documents", methods=["GET"])
+    @login_required
     def list_documents():
         documents = (
             UploadedDocument.query
+            .options(
+                selectinload(UploadedDocument.references)
+                .selectinload(ExtractedReference.detection_results)
+            )
+            .filter_by(user_id=current_user_id())
             .order_by(UploadedDocument.upload_date.desc())
             .all()
         )
@@ -251,22 +273,21 @@ def register_routes(app):
         document_list = []
 
         for document in documents:
-            references = document.references
-
-            retracted_count = 0
-
-            for reference in references:
-                for detection in reference.detection_results:
-                    if detection.is_retracted:
-                        retracted_count += 1
-                        break
+            retracted_count = sum(
+                1
+                for reference in document.references
+                if any(
+                    detection.is_retracted
+                    for detection in reference.detection_results
+                )
+            )
 
             document_list.append({
                 "id": document.id,
                 "filename": document.filename,
                 "upload_date": document.upload_date.isoformat(),
                 "processing_status": document.processing_status,
-                "total_references": len(references),
+                "total_references": len(document.references),
                 "retracted_references": retracted_count,
             })
 
@@ -275,4 +296,3 @@ def register_routes(app):
             "total_documents": len(document_list),
             "documents": document_list,
         }), 200
-        
