@@ -55,3 +55,18 @@ def send_verification_email(recipient: str, token: str) -> None:
         f"{verification_url}\n\n"
         "This link expires after 24 hours. If you did not create this account, you can ignore this email.",
     )
+
+
+def send_password_reset_email(recipient: str, token: str) -> None:
+    """Send a one-time link for password reset."""
+    base_url = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    if not base_url:
+        raise RuntimeError("Email is not configured (APP_PUBLIC_URL is required).")
+    reset_url = f"{base_url}/reset-password?token={token}"
+    send_email(
+        recipient,
+        "Reset your Retraction Checker password",
+        "Use the link below to choose a new password.\n\n"
+        f"{reset_url}\n\n"
+        "This link expires after 1 hour. If you did not request this change, you can ignore this email.",
+    )

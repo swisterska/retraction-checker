@@ -30,6 +30,16 @@ class EmailVerificationToken(db.Model):
     expires_at = db.Column(db.DateTime, nullable=False)
 
 
+class PasswordResetToken(db.Model):
+    __bind_key__ = "users"
+    __tablename__ = "password_reset_tokens"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+
 
 class UploadedDocument(db.Model):
     __tablename__ = "uploaded_documents"

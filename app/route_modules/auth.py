@@ -8,11 +8,17 @@ from app.main import limiter
 
 from app.database import db
 from app.models import User
-from app.services.email_service import send_verification_email
-from app.services.email_verification import confirm_email, issue_verification_token
+from app.services.email_service import send_password_reset_email, send_verification_email
+from app.services.email_verification import (
+    confirm_email,
+    issue_password_reset_token,
+    issue_verification_token,
+    reset_password_with_token,
+)
 from app.services.user_service import (
     register_user,
     authenticate_user,
+    normalize_email,
 )
 from app.route_modules.helpers import (
     current_user_id,
@@ -129,6 +135,76 @@ def register_auth_routes(app):
         return jsonify({
             "status": "success",
             "message": "Email confirmed. You can now sign in.",
+        }), 200
+
+    @app.route("/api/forgot-password", methods=["POST"])
+    @limiter.limit("5 per hour")
+    def forgot_password():
+        data = request.get_json(silent=True)
+        email = data.get("email") if isinstance(data, dict) else None
+        if not isinstance(email, str):
+            return jsonify({
+                "status": "error",
+                "message": "Enter your email address.",
+            }), 400
+
+        normalized_email = normalize_email(email)
+        user = User.query.filter_by(email=normalized_email).first()
+        if user is not None:
+            token = issue_password_reset_token(user.id)
+            try:
+                send_password_reset_email(user.email, token)
+            except Exception:
+                app.logger.exception(
+                    "Could not send password reset email to account %s.",
+                    user.id,
+                )
+                return jsonify({
+                    "status": "error",
+                    "code": "PASSWORD_RESET_EMAIL_FAILED",
+                    "message": "We could not send the reset email right now. Please try again later.",
+                }), 503
+
+        return jsonify({
+            "status": "success",
+            "message": "If an account with that email exists, a password reset link has been sent.",
+        }), 200
+
+    @app.route("/api/reset-password", methods=["POST"])
+    @limiter.limit("10 per hour")
+    def reset_password():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({
+                "status": "error",
+                "message": "A JSON request body is required.",
+            }), 400
+
+        token = data.get("token")
+        password = data.get("password")
+
+        if not isinstance(token, str) or not isinstance(password, str):
+            return jsonify({
+                "status": "error",
+                "message": "A valid reset token and a new password are required.",
+            }), 400
+
+        if len(password) < 12 or len(password) > 1024:
+            return jsonify({
+                "status": "error",
+                "message": "Password must contain at least 12 characters.",
+            }), 400
+
+        if not reset_password_with_token(token, password):
+            return jsonify({
+                "status": "error",
+                "code": "INVALID_RESET_TOKEN",
+                "message": "This reset link is invalid or has expired. Request a new one.",
+            }), 400
+
+        return jsonify({
+            "status": "success",
+            "message": "Your password has been reset successfully.",
         }), 200
 
     @app.route("/api/resend-verification", methods=["POST"])

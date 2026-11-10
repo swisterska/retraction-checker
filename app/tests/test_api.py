@@ -234,6 +234,40 @@ def test_list_documents_keeps_same_filename_uploads_as_distinct_documents(client
     assert {item["filename"] for item in response.json["documents"]} == {"test.pdf"}
 
 
+def test_password_reset_email_and_token_flow_work(client, monkeypatch):
+    captured = []
+    monkeypatch.setattr(
+        "app.route_modules.auth.send_password_reset_email",
+        lambda recipient, token: captured.append((recipient, token)),
+    )
+
+    response = client.post(
+        "/api/forgot-password",
+        json={"email": "api_test@example.com"},
+    )
+    assert response.status_code == 200
+    assert response.json["status"] == "success"
+    assert len(captured) == 1
+    assert captured[0][0] == "api_test@example.com"
+
+    token = captured[0][1]
+    reset_response = client.post(
+        "/api/reset-password",
+        json={"token": token, "password": "FreshPassword123!"},
+    )
+    assert reset_response.status_code == 200
+    assert reset_response.json["status"] == "success"
+
+    retry_login = client.post(
+        "/api/login",
+        json={
+            "email": "api_test@example.com",
+            "password": "FreshPassword123!",
+        },
+    )
+    assert retry_login.status_code == 200
+
+
 def test_analyze_returns_400_when_file_is_missing(client):
     response = client.post("/api/analyze")
 
