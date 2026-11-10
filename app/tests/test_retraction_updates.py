@@ -175,5 +175,7 @@ def test_ensure_dataset_raises_if_no_local_file(tmp_path, monkeypatch):
         failed_download,
     )
 
-    with pytest.raises(requests.exceptions.ConnectionError):
+    with pytest.raises(retractions.RetractionDataError) as error:
         retractions.ensure_retractions_dataset(str(path))
+
+    assert isinstance(error.value.__cause__, requests.exceptions.ConnectionError)

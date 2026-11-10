@@ -105,7 +105,9 @@ def create_app(test_config=None):
             )
         },
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        MAX_CONTENT_LENGTH=16 * 1024 * 1024,
+        MAX_UPLOAD_SIZE_BYTES=16 * 1024 * 1024,
+        ANALYSIS_UPLOAD_DIR=os.environ.get("ANALYSIS_UPLOAD_DIR"),
+        MAX_CONTENT_LENGTH=(16 * 1024 * 1024) + (64 * 1024),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=(
@@ -151,6 +153,17 @@ def create_app(test_config=None):
         from app import models
 
         db.create_all()
+        from app.migrations.email_verification import migrate_user_email_verification
+
+        migrate_user_email_verification(db.engines["users"])
+        from app.migrations.doi_identity import migrate_doi_identity
+
+        migrated, backup_path = migrate_doi_identity(db.engine)
+        if migrated:
+            app.logger.info(
+                "DOI identity migration completed%s.",
+                f"; backup saved to {backup_path}" if backup_path else "",
+            )
 
     app.logger.info("Retraction Checker application initialized.")
 

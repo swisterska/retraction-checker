@@ -6,9 +6,11 @@ import time
 from app.services.grobid import parse_references
 from app.services.xml_parser import extract_references
 from app.services.pubmed import enrich_with_pmid
+from app.services.doi_identity import verify_references_doi_identity
 from app.services.retractions import (
     RetractionService,
     ensure_retractions_dataset,
+    should_update,
 )
 
 import argparse
@@ -40,9 +42,13 @@ def process_pdf(pdf_path: str) -> list[dict]:
     try:
         # Step 1: Ensure Retraction Watch dataset is available.
         ensure_retractions_dataset(CSV_PATH)
+        dataset_is_current = not should_update(CSV_PATH)
 
         # Step 2: Load the local Retraction Watch dataset.
-        retraction_service = RetractionService(CSV_PATH)
+        retraction_service = RetractionService(
+            CSV_PATH,
+            can_verify_absence=dataset_is_current,
+        )
 
         # Step 3: Extract references using GROBID.
         xml = parse_references(pdf_path)
@@ -56,7 +62,10 @@ def process_pdf(pdf_path: str) -> list[dict]:
         # Step 4: Enrich references with PubMed IDs.
         enriched = enrich_with_pmid(refs)
 
-        # Step 5: Detect retracted publications.
+        # Step 5: Confirm each DOI resolves to the cited publication.
+        enriched = verify_references_doi_identity(enriched)
+
+        # Step 6: Detect retractions only for confirmed DOI matches.
         enriched = retraction_service.mark_retracted(enriched)
 
         retracted_count = sum(

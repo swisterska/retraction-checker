@@ -16,6 +16,18 @@ class User(db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+    email_verified = db.Column(db.Boolean, nullable=False, default=False)
+
+
+class EmailVerificationToken(db.Model):
+    __bind_key__ = "users"
+    __tablename__ = "email_verification_tokens"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
 
 
 
@@ -102,6 +114,12 @@ class DetectionResult(db.Model):
         db.ForeignKey("retracted_publications.id"),
     )
     is_retracted = db.Column(db.Boolean, nullable=False)
+    verification_status = db.Column(
+        db.String(30),
+        nullable=False,
+        default="not_verified",
+    )
+    verification_note = db.Column(db.Text)
     detection_method = db.Column(db.String(100))
     detected_at = db.Column(db.DateTime, default=utc_now, nullable=False)
 
@@ -136,5 +154,36 @@ class Notification(db.Model):
     email_sent = db.Column(db.Boolean, default=False, nullable=False)
 
     document = db.relationship("UploadedDocument")
+
+
+class AnalysisJob(db.Model):
+    """Durable queue entry for an analysis that outlives a browser request."""
+
+    __tablename__ = "analysis_jobs"
+
+    id = db.Column(db.String(32), primary_key=True)
+    user_id = db.Column(db.Integer, nullable=True, index=True)
+    guest_owner = db.Column(db.String(64), nullable=True, index=True)
+    email = db.Column(db.String(255), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    pdf_path = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="queued", index=True)
+    error_code = db.Column(db.String(64), nullable=True)
+    document_id = db.Column(db.Integer, nullable=True)
+    report_json = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    finished_at = db.Column(db.DateTime, nullable=True)
+    email_sent = db.Column(db.Boolean, nullable=False, default=False)
+    email_error = db.Column(db.String(255), nullable=True)
+
+
+class BackgroundTaskState(db.Model):
+    """Persistent schedule markers for work performed by the single worker."""
+
+    __tablename__ = "background_task_states"
+
+    name = db.Column(db.String(80), primary_key=True)
+    last_success_at = db.Column(db.DateTime, nullable=True)
 
 

@@ -72,6 +72,19 @@ def save_analysis_results(
                 ):
                     retracted_publication.retraction_reason = reason
 
+            verification_status = ref.get("verification_status")
+            if verification_status not in {
+                "retracted",
+                "verified",
+                "not_verified",
+                "missing_doi",
+            }:
+                verification_status = (
+                    "retracted"
+                    if ref.get("retracted")
+                    else "missing_doi" if not doi else "not_verified"
+                )
+
             result = DetectionResult(
                 reference_id=reference.id,
                 retracted_publication_id=(
@@ -80,8 +93,10 @@ def save_analysis_results(
                     else None
                 ),
                 is_retracted=bool(ref.get("retracted")),
+                verification_status=verification_status,
+                verification_note=ref.get("verification_note"),
                 detection_method=(
-                    "DOI match against Retraction Watch dataset"
+                    "DOI metadata match and Retraction Watch DOI check"
                 ),
             )
             db.session.add(result)

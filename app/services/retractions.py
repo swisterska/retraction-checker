@@ -21,6 +21,10 @@ UPDATE_INTERVAL_HOURS = 24
 REQUEST_TIMEOUT = 30
 
 
+class RetractionDataError(RuntimeError):
+    """Raised when no usable Retraction Watch dataset is available."""
+
+
 def should_update(
     path: str,
     max_age_hours: int = UPDATE_INTERVAL_HOURS,
@@ -157,7 +161,7 @@ def ensure_retractions_dataset(
         update_retractions_from_gitlab(csv_path)
         return True
 
-    except Exception:
+    except Exception as exc:
         if os.path.isfile(csv_path):
             logger.exception(
                 "Retraction Watch update failed. "
@@ -169,11 +173,14 @@ def ensure_retractions_dataset(
         logger.exception(
             "Retraction Watch download failed and no local dataset exists."
         )
-        raise
+        raise RetractionDataError(
+            "No usable Retraction Watch dataset is available."
+        ) from exc
 
 
 class RetractionService:
-    def __init__(self, csv_path: str):
+    def __init__(self, csv_path: str, can_verify_absence: bool = True):
+        self.can_verify_absence = can_verify_absence
         start_time = time.perf_counter()
 
         logger.info(
@@ -181,12 +188,18 @@ class RetractionService:
             csv_path,
         )
 
-        self.df = pd.read_csv(
-            csv_path,
-            encoding="utf-8",
-            encoding_errors="replace",
-            low_memory=False,
-        )
+        try:
+            self.df = pd.read_csv(
+                csv_path,
+                encoding="utf-8",
+                encoding_errors="replace",
+                low_memory=False,
+            )
+        except (OSError, pd.errors.ParserError, UnicodeError) as exc:
+            logger.exception("Could not load the Retraction Watch dataset.")
+            raise RetractionDataError(
+                "The Retraction Watch dataset could not be loaded."
+            ) from exc
 
         doi_column = "OriginalPaperDOI"
 
@@ -195,7 +208,9 @@ class RetractionService:
                 "Retraction Watch dataset is missing column: %s",
                 doi_column,
             )
-            raise ValueError("OriginalPaperDOI column not found")
+            raise RetractionDataError(
+                "The Retraction Watch dataset is missing its DOI column."
+            )
 
         self.df["doi"] = self.df[doi_column].map(normalize_doi)
         self.df = self.df[self.df["doi"].notna()].copy()
@@ -204,7 +219,7 @@ class RetractionService:
             logger.error(
                 "Retraction Watch dataset contains no valid DOIs."
             )
-            raise ValueError(
+            raise RetractionDataError(
                 "Retraction Watch dataset contains no valid DOIs."
             )
 
@@ -257,13 +272,42 @@ class RetractionService:
 
         for ref in references:
             doi = ref.get("doi")
-            is_retracted = self.is_retracted(doi)
+            doi_identity_verified = ref.get("doi_identity_verified") is True
+            doi_is_listed = self.is_retracted(doi)
+            is_retracted = doi_identity_verified and doi_is_listed
 
             if is_retracted:
                 retracted_count += 1
 
             new_ref = ref.copy()
             new_ref["retracted"] = is_retracted
+            if is_retracted:
+                new_ref["verification_status"] = "retracted"
+            elif self.normalize_doi(doi):
+                if not doi_identity_verified:
+                    new_ref["verification_status"] = "not_verified"
+                    if doi_is_listed:
+                        new_ref["verification_note"] = (
+                            "This DOI appears in Retraction Watch, but its match "
+                            "to the citation could not be confirmed. Review it manually."
+                        )
+                    else:
+                        new_ref.setdefault(
+                            "verification_note",
+                            "The DOI could not be confirmed against the citation title.",
+                        )
+                elif self.can_verify_absence:
+                    new_ref["verification_status"] = "verified"
+                    new_ref["verification_note"] = None
+                else:
+                    new_ref["verification_status"] = "not_verified"
+                    new_ref["verification_note"] = (
+                        "The Retraction Watch data was not current, so absence "
+                        "of a retraction could not be confirmed."
+                    )
+            else:
+                new_ref["verification_status"] = "missing_doi"
+                new_ref["verification_note"] = None
             new_ref["retraction_reason"] = (
                 self.get_retraction_reason(doi)
                 if is_retracted

@@ -8,6 +8,8 @@ from app.main import limiter
 
 from app.database import db
 from app.models import User
+from app.services.email_service import send_verification_email
+from app.services.email_verification import confirm_email, issue_verification_token
 from app.services.user_service import (
     register_user,
     authenticate_user,
@@ -91,14 +93,77 @@ def register_auth_routes(app):
                 "message": str(error),
             }), 400
 
+        token = issue_verification_token(user.id)
+        try:
+            send_verification_email(user.email, token)
+        except Exception:
+            app.logger.exception(
+                "Account %s was created but its verification email could not be sent.",
+                user.id,
+            )
+            return jsonify({
+                "status": "error",
+                "code": "VERIFICATION_EMAIL_FAILED",
+                "message": (
+                    "Your account is saved but not active yet. We could not send "
+                    "the confirmation email. Try again after email delivery is configured."
+                ),
+            }), 503
+
+        return jsonify({
+            "status": "pending_verification",
+            "message": "Check your email and click the confirmation link to activate your account.",
+        }), 201
+
+    @app.route("/api/verify-email", methods=["POST"])
+    @limiter.limit("10 per hour")
+    def verify_email():
+        data = request.get_json(silent=True)
+        token = data.get("token") if isinstance(data, dict) else None
+        if not confirm_email(token):
+            return jsonify({
+                "status": "error",
+                "code": "INVALID_VERIFICATION_LINK",
+                "message": "This confirmation link is invalid or has expired. Request a new one.",
+            }), 400
         return jsonify({
             "status": "success",
-            "message": "Account created successfully.",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-            },
-        }), 201
+            "message": "Email confirmed. You can now sign in.",
+        }), 200
+
+    @app.route("/api/resend-verification", methods=["POST"])
+    @limiter.limit("5 per hour")
+    def resend_verification():
+        data = request.get_json(silent=True)
+        email = data.get("email") if isinstance(data, dict) else None
+        if not isinstance(email, str):
+            return jsonify({
+                "status": "error",
+                "message": "Enter your email address.",
+            }), 400
+        user = User.query.filter_by(email=email.strip().lower()).first()
+        if user is None or user.email_verified:
+            return jsonify({
+                "status": "success",
+                "message": "If the account needs confirmation, a new link will be sent.",
+            }), 200
+        token = issue_verification_token(user.id)
+        try:
+            send_verification_email(user.email, token)
+        except Exception:
+            app.logger.exception(
+                "Could not resend an email verification link for account %s.",
+                user.id,
+            )
+            return jsonify({
+                "status": "error",
+                "code": "VERIFICATION_EMAIL_FAILED",
+                "message": "The confirmation email could not be sent. Try again later.",
+            }), 503
+        return jsonify({
+            "status": "success",
+            "message": "If the account needs confirmation, a new link will be sent.",
+        }), 200
 
     @app.route("/api/login", methods=["POST"])
     @limiter.limit("5 per minute")
@@ -127,6 +192,13 @@ def register_auth_routes(app):
                 "status": "error",
                 "message": "Invalid email or password.",
             }), 401
+
+        if not user.email_verified:
+            return jsonify({
+                "status": "error",
+                "code": "EMAIL_NOT_VERIFIED",
+                "message": "Verify your email before signing in. You can request a new confirmation link below.",
+            }), 403
 
         session.clear()
         session["user_id"] = user.id

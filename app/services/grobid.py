@@ -13,7 +13,7 @@ GROBID_URL = os.getenv(
     "GROBID_URL",
     "http://localhost:8070/api/processReferences",
 )
-GROBID_TIMEOUT = float(os.getenv("GROBID_TIMEOUT", "120"))
+GROBID_TIMEOUT = float(os.getenv("GROBID_TIMEOUT", "300"))
 
 
 class GrobidServiceError(RuntimeError):

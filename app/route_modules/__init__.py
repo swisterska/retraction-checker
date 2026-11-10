@@ -9,8 +9,17 @@ def register_routes(app: Flask) -> None:
     def request_entity_too_large(error):
         return jsonify({
             "status": "error",
-            "message": "File is too large. Maximum request size is 16 MB.",
+            "code": "FILE_TOO_LARGE",
+            "message": "The uploaded file exceeds the maximum allowed size of 16 MB.",
         }), 413
+
+    @app.errorhandler(429)
+    def too_many_requests(error):
+        return jsonify({
+            "status": "error",
+            "code": "RATE_LIMITED",
+            "message": "Too many requests. Please wait and try again.",
+        }), 429
 
     from app.route_modules.auth import register_auth_routes
     from app.route_modules.documents import register_document_routes

@@ -2,8 +2,7 @@ version: "3"
 
 services:
   grobid:
-    image: grobid/grobid:0.8.2-crf
-    platform: linux/amd64
+    image: grobid/grobid:0.9.1-crf
     ports:
       - "8070:8070"
 
