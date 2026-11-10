@@ -3,7 +3,7 @@
 import json
 import os
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy import update
@@ -15,7 +15,11 @@ from app.route_modules.documents import guest_report_payload
 from app.run_grobid_pipeline import process_pdf
 from app.services.analysis_jobs import guest_access_token, utcnow
 from app.services.database_service import save_analysis_results
-from app.services.retraction_monitor import ALERT_PREFIX, check_saved_references
+from app.services.retraction_monitor import (
+    ALERT_PREFIX,
+    check_saved_references,
+    should_run_watchlist_refresh,
+)
 from app.services.email_service import send_email
 
 
@@ -189,9 +193,10 @@ def run_worker(poll_seconds=2):
             if time.monotonic() - last_purge >= 60:
                 purge_expired_guest_jobs(app)
                 last_purge = time.monotonic()
-            if time.monotonic() - last_retraction_monitor >= 3600:
+            now = datetime.now(timezone.utc)
+            if should_run_watchlist_refresh(now=now) and time.monotonic() - last_retraction_monitor >= 3600:
                 try:
-                    changed = check_saved_references(app)
+                    changed = check_saved_references(app, now=now)
                     sent = send_pending_retraction_notifications(app)
                     if changed or sent:
                         app.logger.info(

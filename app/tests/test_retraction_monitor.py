@@ -7,12 +7,16 @@ from app.main import create_app
 from app.models import (
     BackgroundTaskState,
     DetectionResult,
+    DocumentWatch,
     ExtractedReference,
     Notification,
     User,
 )
 from app.services.database_service import save_analysis_results
-from app.services.retraction_monitor import check_saved_references
+from app.services.retraction_monitor import (
+    check_saved_references,
+    should_run_watchlist_refresh,
+)
 
 
 @pytest.fixture
@@ -65,6 +69,14 @@ def test_daily_check_transitions_only_previously_verified_references(
                 },
             ],
         )
+        db.session.add(
+            DocumentWatch(
+                user_id=user_id,
+                document_id=document_id,
+                is_active=True,
+            )
+        )
+        db.session.commit()
 
     now = datetime(2026, 11, 3, 12, tzinfo=timezone.utc)
     assert check_saved_references(monitor_app, now=now, dataset_path=str(csv_path)) == 1
@@ -85,6 +97,12 @@ def test_daily_check_transitions_only_previously_verified_references(
     ) == 0
     with monitor_app.app_context():
         assert Notification.query.filter_by(user_id=user_id).count() == 1
+
+
+def test_should_run_watchlist_refresh_only_during_target_window():
+    assert should_run_watchlist_refresh(now=datetime(2026, 11, 10, 7, 0, tzinfo=timezone.utc)) is True
+    assert should_run_watchlist_refresh(now=datetime(2026, 11, 10, 6, 59, tzinfo=timezone.utc)) is False
+    assert should_run_watchlist_refresh(now=datetime(2026, 11, 10, 7, 10, tzinfo=timezone.utc)) is False
 
 
 def test_retraction_digest_marks_email_sent_and_does_not_repeat(

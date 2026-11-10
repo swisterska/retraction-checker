@@ -17,11 +17,14 @@ from app.models import (
     UploadedDocument,
     ExtractedReference,
     DetectionResult,
+    DocumentWatch,
     Notification,
+    RetractedPublication,
 )
 from app.main import limiter
-from app.run_grobid_pipeline import process_pdf
+from app.run_grobid_pipeline import CSV_PATH, process_pdf
 from app.services.database_service import save_analysis_results
+from app.services.doi import normalize_doi
 from app.services.grobid import GrobidServiceError
 from app.services.guest_reports import GuestReportStore, current_guest_owner
 from app.services.analysis_jobs import (
@@ -31,7 +34,11 @@ from app.services.analysis_jobs import (
     job_payload,
 )
 from app.services.pdf_validation import PdfValidationError, validate_pdf
-from app.services.retractions import RetractionDataError
+from app.services.retractions import (
+    RetractionDataError,
+    RetractionService,
+    ensure_retractions_dataset,
+)
 from app.route_modules.helpers import (
     current_user_id,
     login_required,
@@ -378,6 +385,47 @@ def register_document_routes(app):
             "email_warnings": [job.filename for job in email_warnings],
         }), 200
 
+    @app.route("/api/jobs/<job_id>", methods=["DELETE"])
+    @login_required
+    def cancel_analysis_job(job_id):
+        job = AnalysisJob.query.filter_by(
+            id=job_id,
+            user_id=current_user_id(),
+        ).first()
+        if job is None:
+            return error_response(
+                "JOB_NOT_FOUND",
+                "The queued file could not be found.",
+                404,
+            )
+
+        if job.status in {"queued", "running"}:
+            if job.status == "queued":
+                path = Path(job.pdf_path)
+                if path.exists():
+                    path.unlink(missing_ok=True)
+                db.session.delete(job)
+            else:
+                job.status = "cancelled"
+                job.error_code = "CANCELLED"
+                job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                path = Path(job.pdf_path)
+                if path.exists():
+                    path.unlink(missing_ok=True)
+            db.session.commit()
+            return jsonify({
+                "status": "cancelled",
+                "job_id": job_id,
+                "filename": job.filename,
+            }), 200
+
+        return jsonify({
+            "status": "success",
+            "job_id": job_id,
+            "filename": job.filename,
+            "message": "This job is no longer active.",
+        }), 200
+
     # Keep the original synchronous guest endpoint for API compatibility.
     @app.route("/api/guest/analyze", methods=["POST"])
     @limiter.limit("3 per hour")
@@ -583,6 +631,149 @@ def register_document_routes(app):
             "results": results,
         }), 200
 
+    @app.route("/api/documents/watchlist", methods=["GET"])
+    @login_required
+    def get_document_watchlist():
+        watched = (
+            DocumentWatch.query
+            .filter_by(user_id=current_user_id(), is_active=True)
+            .order_by(DocumentWatch.created_at.desc())
+            .all()
+        )
+        return jsonify({
+            "status": "success",
+            "watchlist": [entry.document_id for entry in watched],
+        }), 200
+
+    @app.route("/api/documents/<int:document_id>/watch", methods=["POST"])
+    @login_required
+    def add_document_to_watchlist(document_id):
+        document = UploadedDocument.query.filter_by(
+            id=document_id,
+            user_id=current_user_id(),
+        ).first()
+        if document is None:
+            return error_response(
+                "DOCUMENT_NOT_FOUND",
+                "Document not found.",
+                404,
+            )
+
+        watch_entry = DocumentWatch.query.filter_by(
+            user_id=current_user_id(),
+            document_id=document_id,
+        ).first()
+        if watch_entry is None:
+            watch_entry = DocumentWatch(
+                user_id=current_user_id(),
+                document_id=document_id,
+            )
+            db.session.add(watch_entry)
+        watch_entry.is_active = True
+        watch_entry.last_checked_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        return jsonify({
+            "status": "success",
+            "document_id": document_id,
+            "watched": True,
+        }), 200
+
+    @app.route("/api/documents/<int:document_id>/watch", methods=["DELETE"])
+    @login_required
+    def remove_document_from_watchlist(document_id):
+        watch_entry = DocumentWatch.query.filter_by(
+            user_id=current_user_id(),
+            document_id=document_id,
+        ).first()
+        if watch_entry is None:
+            return jsonify({
+                "status": "success",
+                "document_id": document_id,
+                "watched": False,
+            }), 200
+
+        db.session.delete(watch_entry)
+        db.session.commit()
+
+        return jsonify({
+            "status": "success",
+            "document_id": document_id,
+            "watched": False,
+        }), 200
+
+    @app.route(
+        "/api/documents/<int:document_id>/refresh",
+        methods=["POST"],
+    )
+    @login_required
+    def refresh_document_retractions(document_id):
+        document = owned_document(document_id, current_user_id())
+        if document is None:
+            return error_response(
+                "DOCUMENT_NOT_FOUND",
+                "Document not found.",
+                404,
+            )
+
+        try:
+            ensure_retractions_dataset(CSV_PATH)
+            service = RetractionService(CSV_PATH)
+            refreshed = 0
+
+            for reference in document.references:
+                if not reference.detection_results:
+                    continue
+
+                detection = reference.detection_results[0]
+                doi = normalize_doi(reference.doi)
+
+                if not doi:
+                    detection.is_retracted = False
+                    detection.verification_status = "missing_doi"
+                    detection.verification_note = None
+                    detection.retracted_publication_id = None
+                    refreshed += 1
+                    continue
+
+                if service.is_retracted(doi):
+                    publication = RetractedPublication.query.filter_by(doi=doi).first()
+                    if publication is None:
+                        publication = RetractedPublication(
+                            doi=doi,
+                            pmid=reference.pmid,
+                            title=reference.title,
+                            retraction_reason=service.get_retraction_reason(doi),
+                            source="Retraction Watch",
+                        )
+                        db.session.add(publication)
+                        db.session.flush()
+
+                    detection.is_retracted = True
+                    detection.verification_status = "retracted"
+                    detection.verification_note = "This reference is now listed as retracted in Retraction Watch."
+                    detection.retracted_publication_id = publication.id
+                    refreshed += 1
+                    continue
+
+                detection.is_retracted = False
+                detection.verification_status = "verified"
+                detection.verification_note = None
+                detection.retracted_publication_id = None
+                refreshed += 1
+
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            return analysis_failure_response(app, exc)
+
+        return jsonify({
+            "status": "success",
+            "document_id": document.id,
+            "message": "Document checks refreshed.",
+            "refreshed": refreshed,
+        }), 200
+
     @app.route(
         "/api/documents/<int:document_id>",
         methods=["DELETE"],
@@ -641,8 +832,19 @@ def register_document_routes(app):
         )
 
         document_list = []
+        watched_document_ids = {
+            entry.document_id
+            for entry in DocumentWatch.query.filter_by(
+                user_id=current_user_id(),
+                is_active=True,
+            ).all()
+        }
 
-        for document in documents:
+        for document in sorted(
+            documents,
+            key=lambda item: item.upload_date,
+            reverse=True,
+        ):
             retracted_count = sum(
                 1
                 for reference in document.references
@@ -659,6 +861,7 @@ def register_document_routes(app):
                 "processing_status": document.processing_status,
                 "total_references": len(document.references),
                 "retracted_references": retracted_count,
+                "is_watched": document.id in watched_document_ids,
             })
 
         return jsonify({

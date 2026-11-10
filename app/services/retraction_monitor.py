@@ -6,6 +6,7 @@ from app.database import db
 from app.models import (
     BackgroundTaskState,
     DetectionResult,
+    DocumentWatch,
     ExtractedReference,
     Notification,
     RetractedPublication,
@@ -18,7 +19,17 @@ from app.services.retractions import RetractionService, ensure_retractions_datas
 
 TASK_NAME = "daily_retraction_monitor"
 CHECK_INTERVAL = timedelta(hours=24)
+WATCHLIST_REFRESH_HOUR = 7
+WATCHLIST_REFRESH_WINDOW_MINUTES = 10
 ALERT_PREFIX = "A cited reference is now retracted:"
+
+
+def should_run_watchlist_refresh(*, now=None, target_hour=WATCHLIST_REFRESH_HOUR, window_minutes=WATCHLIST_REFRESH_WINDOW_MINUTES):
+    """Return True if the app should run its watched-document refresh at the scheduled hour."""
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return now.hour == target_hour and now.minute < window_minutes
 
 
 def check_saved_references(app, *, now=None, dataset_path=CSV_PATH):
@@ -42,10 +53,25 @@ def check_saved_references(app, *, now=None, dataset_path=CSV_PATH):
 
         ensure_retractions_dataset(dataset_path)
         service = RetractionService(dataset_path)
+        watched_document_ids = (
+            db.session.query(DocumentWatch.document_id)
+            .filter(
+                DocumentWatch.user_id == UploadedDocument.user_id,
+                DocumentWatch.is_active.is_(True),
+            )
+            .subquery()
+        )
+
         candidates = (
             db.session.query(DetectionResult, ExtractedReference, UploadedDocument)
             .join(ExtractedReference, DetectionResult.reference_id == ExtractedReference.id)
             .join(UploadedDocument, ExtractedReference.document_id == UploadedDocument.id)
+            .join(
+                DocumentWatch,
+                (DocumentWatch.document_id == UploadedDocument.id)
+                & (DocumentWatch.user_id == UploadedDocument.user_id)
+                & (DocumentWatch.is_active.is_(True)),
+            )
             .filter(
                 DetectionResult.verification_status == "verified",
                 DetectionResult.is_retracted.is_(False),
@@ -77,6 +103,15 @@ def check_saved_references(app, *, now=None, dataset_path=CSV_PATH):
             result.retracted_publication_id = publication.id
             result.detection_method = "Daily Retraction Watch status check"
             result.detected_at = now
+
+            watch_entry = DocumentWatch.query.filter_by(
+                user_id=document.user_id,
+                document_id=document.id,
+                is_active=True,
+            ).first()
+            if watch_entry is not None:
+                watch_entry.last_checked_at = now
+
             db.session.add(Notification(
                 user_id=document.user_id,
                 document_id=document.id,

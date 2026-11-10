@@ -14,7 +14,7 @@ import {
 import "./App.css";
 import "./dialog.css";
 import "./verification-note.css";
-import { filterFindings } from "./resultsFilter";
+import { filterFindings, searchFindings } from "./resultsFilter";
 import type { ResultsFilter } from "./resultsFilter";
 
 const API = "/api";
@@ -139,6 +139,20 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   ) as T & ApiErrorPayload;
   if (!response.ok) throw new ApiRequestError(response.status, payload);
   return payload;
+}
+
+function mergeDocuments(current: Document[], incoming: Document[]) {
+  const unique = new Map<number, Document>();
+
+  for (const document of [...current, ...incoming]) {
+    unique.set(document.id, document);
+  }
+
+  return [...unique.values()].sort(
+    (left, right) =>
+      new Date(right.upload_date).getTime() -
+      new Date(left.upload_date).getTime(),
+  );
 }
 
 function App() {
@@ -700,13 +714,27 @@ function Dashboard({
   );
   const [message, setMessage] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const [documentQuery, setDocumentQuery] = useState("");
+  const [watchList, setWatchList] = useState<number[]>([]);
+  const [refreshingId, setRefreshingId] = useState<number | null>(null);
+  const [jobToCancel, setJobToCancel] = useState<{
+    job_id: string;
+    filename: string;
+  } | null>(null);
   const [activeJobs, setActiveJobs] = useState<
     { job_id: string; filename: string }[]
   >([]);
+
   const load = useCallback(async () => {
     try {
-      const data = await request<{ documents: Document[] }>("/documents");
-      setDocuments(data.documents);
+      const [documentsResult, watchListResult] = await Promise.all([
+        request<{ documents: Document[] }>("/documents"),
+        request<{ watchlist: number[] }>("/documents/watchlist"),
+      ]);
+      setDocuments((current) =>
+        mergeDocuments(current, documentsResult.documents),
+      );
+      setWatchList(watchListResult.watchlist ?? []);
     } catch (cause) {
       setUploadError(
         cause instanceof Error ? cause.message : "Could not load documents.",
@@ -715,6 +743,7 @@ function Dashboard({
       setLoading(false);
     }
   }, []);
+
   useEffect(() => {
     let active = true;
     let hadJobs = false;
@@ -744,10 +773,16 @@ function Dashboard({
 
     async function loadInitialDocuments() {
       try {
-        const data = await request<{ documents: Document[] }>("/documents");
+        const [documentsResult, watchListResult] = await Promise.all([
+          request<{ documents: Document[] }>("/documents"),
+          request<{ watchlist: number[] }>("/documents/watchlist"),
+        ]);
 
         if (active) {
-          setDocuments(data.documents);
+          setDocuments((current) =>
+            mergeDocuments(current, documentsResult.documents),
+          );
+          setWatchList(watchListResult.watchlist ?? []);
         }
       } catch (cause) {
         if (active) {
@@ -797,15 +832,39 @@ function Dashboard({
     setUploadError("");
     setMessage("");
     setDeletingId(document.id);
+    const removedDocumentId = document.id;
+    const removedFilename = document.filename;
+
+    setDocuments((current) =>
+      current.filter((item) => item.id !== removedDocumentId),
+    );
+    setWatchList((current) =>
+      current.filter((item) => item !== removedDocumentId),
+    );
+
     try {
       const csrf = await request<{ csrf_token: string }>("/csrf");
-      await request(`/documents/${document.id}`, {
+      await request(`/documents/${removedDocumentId}`, {
         method: "DELETE",
         headers: { "X-CSRF-Token": csrf.csrf_token },
       });
-      setMessage(`Deleted ${document.filename}.`);
-      await load();
+      setMessage(`Deleted ${removedFilename}.`);
     } catch (cause) {
+      setDocuments((current) => {
+        const restored = current.some((item) => item.id === removedDocumentId)
+          ? current
+          : [...current, document];
+        return restored.sort(
+          (left, right) =>
+            new Date(right.upload_date).getTime() -
+            new Date(left.upload_date).getTime(),
+        );
+      });
+      setWatchList((current) =>
+        current.includes(removedDocumentId)
+          ? current
+          : [...current, removedDocumentId],
+      );
       setUploadError(
         cause instanceof Error ? cause.message : "Could not delete analysis.",
       );
@@ -813,6 +872,84 @@ function Dashboard({
       setDeletingId(null);
     }
   }
+
+  async function cancelJob(job: { job_id: string; filename: string }) {
+    setUploadError("");
+    setMessage("");
+    setJobToCancel(null);
+    try {
+      const csrf = await request<{ csrf_token: string }>("/csrf");
+      await request(`/jobs/${job.job_id}`, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": csrf.csrf_token },
+      });
+      setActiveJobs((current) =>
+        current.filter((item) => item.job_id !== job.job_id),
+      );
+      setMessage(`Removed ${job.filename} from the queue.`);
+    } catch (cause) {
+      setUploadError(
+        cause instanceof Error ? cause.message : "Could not cancel this job.",
+      );
+    }
+  }
+
+  async function refreshDocument(documentId: number) {
+    setUploadError("");
+    setMessage("");
+    setRefreshingId(documentId);
+    try {
+      const csrf = await request<{ csrf_token: string }>("/csrf");
+      const result = await request<{ message?: string }>(
+        `/documents/${documentId}/refresh`,
+        {
+          method: "POST",
+          headers: { "X-CSRF-Token": csrf.csrf_token },
+        },
+      );
+      setMessage(result.message || "Document checks refreshed.");
+      await load();
+    } catch (cause) {
+      setUploadError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not refresh this document.",
+      );
+    } finally {
+      setRefreshingId(null);
+    }
+  }
+
+  async function toggleWatchList(documentId: number) {
+    const isCurrentlyWatched = watchList.includes(documentId);
+    setWatchList((current) => {
+      if (current.includes(documentId)) {
+        return current.filter((id) => id !== documentId);
+      }
+      return [...current, documentId];
+    });
+
+    try {
+      const csrf = await request<{ csrf_token: string }>("/csrf");
+      await request(`/documents/${documentId}/watch`, {
+        method: isCurrentlyWatched ? "DELETE" : "POST",
+        headers: { "X-CSRF-Token": csrf.csrf_token },
+      });
+    } catch (cause) {
+      setWatchList((current) => {
+        if (isCurrentlyWatched) {
+          return current.includes(documentId)
+            ? current
+            : [...current, documentId];
+        }
+        return current.filter((id) => id !== documentId);
+      });
+      setUploadError(
+        cause instanceof Error ? cause.message : "Could not update watch list.",
+      );
+    }
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -870,9 +1007,19 @@ function Dashboard({
         {activeJobs.length > 0 && (
           <section className="job-list" aria-live="polite">
             {activeJobs.map((job) => (
-              <p key={job.job_id}>
-                Analysis in progress: <strong>{job.filename}</strong>.
-              </p>
+              <div className="queue-item" key={job.job_id}>
+                <p>
+                  Analysis in progress: <strong>{job.filename}</strong>.
+                </p>
+                <button
+                  type="button"
+                  className="queue-cancel-button"
+                  aria-label={`Cancel ${job.filename}`}
+                  onClick={() => setJobToCancel(job)}
+                >
+                  ×
+                </button>
+              </div>
             ))}
           </section>
         )}
@@ -887,58 +1034,173 @@ function Dashboard({
               {documents.length === 1 ? "document" : "documents"}
             </span>
           </div>
+          {watchList.length > 0 && (
+            <div className="watchlist-panel">
+              <div className="watchlist-header">
+                <p className="eyebrow">WATCH LIST</p>
+                <span className="count-pill">{watchList.length}</span>
+              </div>
+              <div className="watchlist-items">
+                {documents
+                  .filter((doc) => watchList.includes(doc.id))
+                  .map((doc) => (
+                    <Link
+                      key={doc.id}
+                      to={`/documents/${doc.id}`}
+                      className="watchlist-item"
+                    >
+                      {doc.filename}
+                    </Link>
+                  ))}
+              </div>
+            </div>
+          )}
           {loading ? (
             <p className="empty-state">Loading your documents…</p>
-          ) : documents.length === 0 ? (
-            <div className="empty-state">
-              <span className="empty-icon">▤</span>
-              <h3>No checks yet</h3>
-              <p>Your analyzed papers will appear here.</p>
-            </div>
           ) : (
-            <div className="document-list">
-              {documents.map((doc) => (
-                <div className="document-row" key={doc.id}>
-                  <Link
-                    className="document-row-open"
-                    to={`/documents/${doc.id}`}
-                  >
-                    <span className="pdf-icon">PDF</span>
-                    <span className="document-name">
-                      <strong>{doc.filename}</strong>
-                      <small>
-                        {new Date(doc.upload_date).toLocaleDateString()} ·{" "}
-                        {doc.total_references} references
-                      </small>
-                    </span>
-                    <span
-                      className={
-                        doc.retracted_references
-                          ? "result-badge warning"
-                          : "result-badge clear"
-                      }
-                    >
-                      {doc.retracted_references
-                        ? `${doc.retracted_references} retracted`
-                        : "No retractions"}
-                    </span>
-                    <span className="row-arrow">→</span>
-                  </Link>
-                  <button
-                    className="delete-button"
-                    type="button"
-                    disabled={deletingId === doc.id}
-                    aria-label={`Delete ${doc.filename}`}
-                    onClick={() => setDocumentToDelete(doc)}
-                  >
-                    {deletingId === doc.id ? "Deleting…" : "Delete"}
-                  </button>
+            <>
+              <div className="document-search-wrap">
+                <input
+                  type="search"
+                  className="document-search"
+                  value={documentQuery}
+                  onChange={(event) => setDocumentQuery(event.target.value)}
+                  placeholder="Search by document name"
+                  aria-label="Search documents by name"
+                />
+              </div>
+              {documents.filter((doc) =>
+                doc.filename
+                  .toLowerCase()
+                  .includes(documentQuery.trim().toLowerCase()),
+              ).length === 0 ? (
+                <div className="empty-state">
+                  <span className="empty-icon">⌕</span>
+                  <h3>No matching documents</h3>
+                  <p>Try a different file name.</p>
                 </div>
-              ))}
-            </div>
+              ) : (
+                <div className="document-list">
+                  {documents
+                    .filter((doc) =>
+                      doc.filename
+                        .toLowerCase()
+                        .includes(documentQuery.trim().toLowerCase()),
+                    )
+                    .map((doc) => (
+                      <div className="document-row" key={doc.id}>
+                        <Link
+                          className="document-row-open"
+                          to={`/documents/${doc.id}`}
+                        >
+                          <span className="pdf-icon">PDF</span>
+                          <span className="document-name">
+                            <strong>{doc.filename}</strong>
+                            <small>
+                              {new Date(doc.upload_date).toLocaleDateString()} ·{" "}
+                              {doc.total_references} references
+                            </small>
+                          </span>
+                          <span
+                            className={
+                              doc.retracted_references
+                                ? "result-badge warning"
+                                : "result-badge clear"
+                            }
+                          >
+                            {doc.retracted_references
+                              ? `${doc.retracted_references} retracted`
+                              : "No retractions"}
+                          </span>
+                          <span className="row-arrow">→</span>
+                        </Link>
+                        <div className="document-actions">
+                          <button
+                            className="watch-button"
+                            type="button"
+                            aria-label={
+                              watchList.includes(doc.id)
+                                ? `Remove ${doc.filename} from watch list`
+                                : `Add ${doc.filename} to watch list`
+                            }
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              toggleWatchList(doc.id);
+                            }}
+                          >
+                            {watchList.includes(doc.id) ? "★" : "☆"}
+                          </button>
+                          <button
+                            className="refresh-button"
+                            type="button"
+                            disabled={refreshingId === doc.id}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              void refreshDocument(doc.id);
+                            }}
+                          >
+                            {refreshingId === doc.id
+                              ? "Refreshing…"
+                              : "Refresh"}
+                          </button>
+                          <button
+                            className="delete-button"
+                            type="button"
+                            disabled={deletingId === doc.id}
+                            aria-label={`Delete ${doc.filename}`}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setDocumentToDelete(doc);
+                            }}
+                          >
+                            {deletingId === doc.id ? "Deleting…" : "Delete"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       </main>
+      {jobToCancel && (
+        <div className="confirm-overlay">
+          <section
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-job-title"
+            aria-describedby="cancel-job-description"
+          >
+            <p className="eyebrow">CANCEL ANALYSIS</p>
+            <h2 id="cancel-job-title">Remove this file from the queue?</h2>
+            <p id="cancel-job-description">
+              “{jobToCancel.filename}” will be removed from the current analysis
+              queue.
+            </p>
+            <div className="confirm-actions">
+              <button
+                className="quiet-button"
+                type="button"
+                onClick={() => setJobToCancel(null)}
+              >
+                Keep it
+              </button>
+              <button
+                className="delete-confirm-button"
+                type="button"
+                onClick={() => void cancelJob(jobToCancel)}
+              >
+                Remove file
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       {documentToDelete && (
         <div className="confirm-overlay">
           <section
@@ -991,6 +1253,9 @@ function ResultsPage({ guest = false }: { guest?: boolean }) {
   const [jobStatus, setJobStatus] = useState("");
   const [resultFilter, setResultFilter] = useState<ResultsFilter[]>(["all"]);
   const [showStatusHelp, setShowStatusHelp] = useState(false);
+  const [watchList, setWatchList] = useState<number[]>([]);
+  const [refreshingReport, setRefreshingReport] = useState(false);
+  const [referenceQuery, setReferenceQuery] = useState("");
   const [copiedReferenceId, setCopiedReferenceId] = useState<number | null>(
     null,
   );
@@ -1020,6 +1285,73 @@ function ResultsPage({ guest = false }: { guest?: boolean }) {
       // no-op: clipboard access is optional for this quick helper
     }
   };
+
+  const refreshResults = useCallback(async () => {
+    if (!id) return;
+    try {
+      if (!guest) {
+        setRefreshingReport(true);
+        const csrf = await request<{ csrf_token: string }>("/csrf");
+        await request(`/documents/${id}/refresh`, {
+          method: "POST",
+          headers: { "X-CSRF-Token": csrf.csrf_token },
+        });
+      }
+      if (guest) {
+        const query = accessToken
+          ? `?access=${encodeURIComponent(accessToken)}`
+          : "";
+        const result = await request<{
+          status: string;
+          report?: AnalysisReport;
+          error_code?: string;
+        }>(`/guest/reports/${id}${query}`);
+        setJobStatus(result.status);
+        if (result.status === "completed" && result.report)
+          setData(result.report);
+        else if (result.status === "failed")
+          setError(
+            result.error_code === "NO_REFERENCES_FOUND"
+              ? "No references were found in this PDF."
+              : "The analysis could not be completed. Check your email for an update.",
+          );
+        return;
+      }
+
+      const result = await request<AnalysisReport>(`/documents/${id}/results`);
+      setData(result);
+      setError("");
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not refresh results.",
+      );
+    } finally {
+      setRefreshingReport(false);
+    }
+  }, [accessToken, guest, id]);
+
+  useEffect(() => {
+    if (guest) {
+      setWatchList([]);
+      return;
+    }
+
+    let alive = true;
+    const loadWatchList = async () => {
+      try {
+        const data = await request<{ watchlist: number[] }>(
+          "/documents/watchlist",
+        );
+        if (alive) setWatchList(data.watchlist ?? []);
+      } catch {
+        if (alive) setWatchList([]);
+      }
+    };
+    void loadWatchList();
+    return () => {
+      alive = false;
+    };
+  }, [guest]);
 
   useEffect(() => {
     let alive = true;
@@ -1099,6 +1431,7 @@ function ResultsPage({ guest = false }: { guest?: boolean }) {
   ];
 
   const findings = filterFindings(data.results, resultFilter);
+  const matchingFindings = searchFindings(findings, referenceQuery);
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -1129,6 +1462,57 @@ function ResultsPage({ guest = false }: { guest?: boolean }) {
           <div>
             <p className="eyebrow">REFERENCE DETAILS</p>
             <h2>Findings</h2>
+          </div>
+          <div className="result-actions">
+            <button
+              type="button"
+              className="refresh-button"
+              disabled={refreshingReport}
+              onClick={() => void refreshResults()}
+            >
+              {refreshingReport ? "Refreshing…" : "Refresh"}
+            </button>
+            {!guest && (
+              <button
+                type="button"
+                className="watch-button large"
+                aria-label={
+                  id && watchList.includes(Number(id))
+                    ? "Remove this document from watch list"
+                    : "Add this document to watch list"
+                }
+                onClick={async () => {
+                  if (!id) return;
+                  const value = Number(id);
+                  const isCurrentlyWatched = watchList.includes(value);
+                  setWatchList((current) => {
+                    if (current.includes(value)) {
+                      return current.filter((item) => item !== value);
+                    }
+                    return [...current, value];
+                  });
+
+                  try {
+                    const csrf = await request<{ csrf_token: string }>("/csrf");
+                    await request(`/documents/${value}/watch`, {
+                      method: isCurrentlyWatched ? "DELETE" : "POST",
+                      headers: { "X-CSRF-Token": csrf.csrf_token },
+                    });
+                  } catch {
+                    setWatchList((current) => {
+                      if (isCurrentlyWatched) {
+                        return current.includes(value)
+                          ? current
+                          : [...current, value];
+                      }
+                      return current.filter((item) => item !== value);
+                    });
+                  }
+                }}
+              >
+                {id && watchList.includes(Number(id)) ? "★" : "☆"}
+              </button>
+            )}
           </div>
         </div>
         <div className="filter-panel">
@@ -1231,8 +1615,18 @@ function ResultsPage({ guest = false }: { guest?: boolean }) {
             </div>
           )}
         </div>
+        <div className="reference-search-wrap">
+          <input
+            type="search"
+            className="reference-search"
+            value={referenceQuery}
+            onChange={(event) => setReferenceQuery(event.target.value)}
+            placeholder="Search by citation, title, DOI, PMID, author"
+            aria-label="Search references"
+          />
+        </div>
         <div className="finding-list">
-          {findings.map((item) => (
+          {matchingFindings.map((item) => (
             <article className="finding-card" key={item.reference_id}>
               <div className="finding-top">
                 <div>
@@ -1296,8 +1690,12 @@ function ResultsPage({ guest = false }: { guest?: boolean }) {
               )}
             </article>
           ))}
-          {findings.length === 0 && (
-            <p className="empty-state">No references match this filter.</p>
+          {matchingFindings.length === 0 && (
+            <p className="empty-state">
+              {referenceQuery
+                ? "No references match your search."
+                : "No references match this filter."}
+            </p>
           )}
         </div>
       </main>

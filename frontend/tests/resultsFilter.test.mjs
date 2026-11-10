@@ -1,28 +1,36 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { filterFindings } from "../src/resultsFilter.ts";
+import { filterFindings, searchFindings } from "../src/resultsFilter.ts";
 
 const findings = [
   {
     reference_id: 1,
+    title: "Example article",
+    authors: "Smith, A.",
     doi: "10.1234/example",
     is_retracted: true,
     verification_status: "retracted",
   },
   {
     reference_id: 2,
+    title: "Verified paper",
+    authors: "Brown, B.",
     doi: "10.1234/verified",
     is_retracted: false,
     verification_status: "verified",
   },
   {
     reference_id: 3,
+    title: "Missing DOI article",
+    authors: "Taylor, D.",
     doi: null,
     is_retracted: false,
     verification_status: "missing_doi",
   },
   {
     reference_id: 4,
+    title: "No notice article",
+    authors: "Jones, E.",
     doi: "   ",
     is_retracted: null,
     verification_status: "not_verified",
@@ -75,5 +83,29 @@ test("multiple filters can be combined in the dropdown selection", () => {
       ({ reference_id }) => reference_id,
     ),
     [3, 4],
+  );
+});
+
+test("reference search matches title, author, DOI and citation fragments", () => {
+  assert.deepEqual(
+    searchFindings(findings, "example").map(({ reference_id }) => reference_id),
+    [1],
+  );
+  assert.deepEqual(
+    searchFindings(findings, "brown").map(({ reference_id }) => reference_id),
+    [2],
+  );
+  assert.deepEqual(
+    searchFindings(findings, "10.1234/verified").map(
+      ({ reference_id }) => reference_id,
+    ),
+    [2],
+  );
+  assert.deepEqual(
+    searchFindings(
+      findings,
+      "Example article. Smith, A. DOI: 10.1234/example",
+    ).map(({ reference_id }) => reference_id),
+    [1],
   );
 });

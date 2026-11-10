@@ -54,6 +54,36 @@ class UploadedDocument(db.Model):
         back_populates="document",
         cascade="all, delete-orphan",
     )
+    watch_entries = db.relationship(
+        "DocumentWatch",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
+
+
+class DocumentWatch(db.Model):
+    __tablename__ = "document_watchlist"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False, index=True)
+    document_id = db.Column(
+        db.Integer,
+        db.ForeignKey("uploaded_documents.id"),
+        nullable=False,
+        index=True,
+    )
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+    last_checked_at = db.Column(db.DateTime, nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "document_id", name="uq_document_watch_user_document"),
+    )
+
+    document = db.relationship(
+        "UploadedDocument",
+        back_populates="watch_entries",
+    )
 
 
 class ExtractedReference(db.Model):

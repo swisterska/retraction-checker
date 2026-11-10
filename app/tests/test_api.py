@@ -133,6 +133,107 @@ def client(monkeypatch, tmp_path):
         db.drop_all()
 
 
+def test_document_refresh_requires_valid_csrf_token(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.route_modules.documents.ensure_retractions_dataset",
+        lambda *args, **kwargs: True,
+    )
+
+    response = client.post(
+        "/api/analyze",
+        data={
+            "file": (
+                io.BytesIO(valid_pdf_bytes()),
+                "document.pdf",
+            )
+        },
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 200
+    document_id = response.json["document_id"]
+
+    missing_token_response = client.post(
+        f"/api/documents/{document_id}/refresh",
+        _skip_csrf=True,
+    )
+    assert missing_token_response.status_code == 400
+    assert "CSRF" in missing_token_response.json["message"]
+
+    refresh_response = client.post(f"/api/documents/{document_id}/refresh")
+
+    assert refresh_response.status_code == 200
+    assert refresh_response.json["status"] == "success"
+    assert refresh_response.json["document_id"] == document_id
+
+
+def test_watchlist_is_persisted_per_user_and_visible_in_document_list(client):
+    response = client.post(
+        "/api/analyze",
+        data={
+            "file": (
+                io.BytesIO(valid_pdf_bytes()),
+                "watch.pdf",
+            )
+        },
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 200
+    document_id = response.json["document_id"]
+
+    add_watch_response = client.post(f"/api/documents/{document_id}/watch")
+    assert add_watch_response.status_code == 200
+    assert add_watch_response.json["watched"] is True
+
+    watchlist_response = client.get("/api/documents/watchlist")
+    assert watchlist_response.status_code == 200
+    assert watchlist_response.json["watchlist"] == [document_id]
+
+    list_response = client.get("/api/documents")
+    assert list_response.status_code == 200
+    item = next(doc for doc in list_response.json["documents"] if doc["id"] == document_id)
+    assert item["is_watched"] is True
+
+    remove_watch_response = client.delete(f"/api/documents/{document_id}/watch")
+    assert remove_watch_response.status_code == 200
+    assert remove_watch_response.json["watched"] is False
+
+    refreshed_watchlist = client.get("/api/documents/watchlist")
+    assert refreshed_watchlist.status_code == 200
+    assert refreshed_watchlist.json["watchlist"] == []
+
+
+def test_list_documents_keeps_same_filename_uploads_as_distinct_documents(client):
+    first = client.post(
+        "/api/analyze",
+        data={
+            "file": (
+                io.BytesIO(valid_pdf_bytes()),
+                "test.pdf",
+            )
+        },
+        content_type="multipart/form-data",
+    )
+    second = client.post(
+        "/api/analyze",
+        data={
+            "file": (
+                io.BytesIO(valid_pdf_bytes()),
+                "test.pdf",
+            )
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    response = client.get("/api/documents")
+
+    assert response.status_code == 200
+    assert len(response.json["documents"]) == 2
+    assert {item["filename"] for item in response.json["documents"]} == {"test.pdf"}
+
+
 def test_analyze_returns_400_when_file_is_missing(client):
     response = client.post("/api/analyze")
 
