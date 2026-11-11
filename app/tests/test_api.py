@@ -308,14 +308,69 @@ def test_password_reset_email_and_token_flow_work(client, monkeypatch):
     assert reset_response.status_code == 200
     assert reset_response.json["status"] == "success"
 
-    retry_login = client.post(
-        "/api/login",
+
+def test_account_management_routes_require_password_and_clear_history(client):
+    create_document = client.post(
+        "/api/analyze",
+        data={
+            "file": (
+                io.BytesIO(valid_pdf_bytes()),
+                "history.pdf",
+            )
+        },
+        content_type="multipart/form-data",
+    )
+    assert create_document.status_code == 200
+
+    wrong_password = client.post(
+        "/api/account/password",
         json={
-            "email": "api_test@example.com",
-            "password": "FreshPassword123!",
+            "current_password": "WrongPassword123!",
+            "new_password": "NewPassword456!",
         },
     )
-    assert retry_login.status_code == 200
+    assert wrong_password.status_code == 401
+
+    change_email = client.post(
+        "/api/account/email",
+        json={
+            "current_password": "StrongTestPassword123!",
+            "new_email": "updated_api_test@example.com",
+        },
+    )
+    assert change_email.status_code == 200
+    assert change_email.json["status"] == "success"
+
+    change_password = client.post(
+        "/api/account/password",
+        json={
+            "current_password": "StrongTestPassword123!",
+            "new_password": "UpdatedPassword456!",
+        },
+    )
+    assert change_password.status_code == 200
+    assert change_password.json["status"] == "success"
+
+    clear_history = client.post(
+        "/api/account/clear-history",
+        json={"current_password": "UpdatedPassword456!"},
+    )
+    assert clear_history.status_code == 200
+    assert clear_history.json["status"] == "success"
+
+    documents = client.get("/api/documents")
+    assert documents.status_code == 200
+    assert documents.json["total_documents"] == 0
+
+    delete_account = client.delete(
+        "/api/account",
+        json={"current_password": "UpdatedPassword456!"},
+    )
+    assert delete_account.status_code == 200
+    assert delete_account.json["status"] == "success"
+
+    me = client.get("/api/me")
+    assert me.status_code == 401
 
 
 def test_analyze_returns_400_when_file_is_missing(client):
@@ -341,7 +396,7 @@ def test_analyze_returns_400_for_non_pdf_extension(client):
     assert response.status_code == 400
     assert response.json["code"] == "INVALID_FILE_FORMAT"
     assert response.json["message"] == (
-        "Invalid file format. Please upload a valid PDF file."
+        "This file is not a PDF. Rename it so it ends with .pdf and try again."
     )
 
 

@@ -1,5 +1,7 @@
+from urllib.error import HTTPError
 from unittest.mock import patch
-from app.services.pubmed import normalize_doi, get_pmid
+
+from app.services.pubmed import get_pmid, normalize_doi, pubmed_search
 
 
 def test_normalize_doi():
@@ -35,3 +37,29 @@ def test_get_pmid_none_input():
 
     assert get_pmid(None) is None
     assert get_pmid("") is None
+
+
+@patch("app.services.pubmed.time.sleep")
+@patch("app.services.pubmed.Entrez.read")
+@patch("app.services.pubmed.Entrez.esearch")
+def test_pubmed_search_retries_after_rate_limit(
+    mock_esearch,
+    mock_read,
+    mock_sleep,
+):
+    """
+    PubMed 429 responses should be retried with backoff instead of failing the
+    whole analysis.
+    """
+
+    mock_esearch.side_effect = [
+        HTTPError("https://example.com", 429, "Too Many Requests", hdrs=None, fp=None),
+        object(),
+    ]
+    mock_read.return_value = {"IdList": ["123456"]}
+
+    result = pubmed_search('"10.1000/test"[DOI]')
+
+    assert result == "123456"
+    assert mock_esearch.call_count == 2
+    assert mock_sleep.call_count >= 1

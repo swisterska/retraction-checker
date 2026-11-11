@@ -1,13 +1,25 @@
 
 import hmac
+import re
 import secrets
 
 from flask import jsonify, request, session
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.main import limiter
 
 from app.database import db
-from app.models import User
+from app.models import (
+    AnalysisJob,
+    DetectionResult,
+    DocumentWatch,
+    EmailVerificationToken,
+    ExtractedReference,
+    Notification,
+    PasswordResetToken,
+    UploadedDocument,
+    User,
+)
 from app.services.email_service import send_password_reset_email, send_verification_email
 from app.services.email_verification import (
     confirm_email,
@@ -51,6 +63,52 @@ def protect_csrf():
         return csrf_error()
 
     return None
+
+
+def clear_user_history(user):
+    """Delete a user's uploaded documents and all related history."""
+    documents = UploadedDocument.query.filter_by(user_id=user.id).all()
+    document_ids = [document.id for document in documents]
+
+    reference_ids = []
+    if document_ids:
+        reference_ids = [
+            reference.id
+            for reference in ExtractedReference.query.filter(
+                ExtractedReference.document_id.in_(document_ids)
+            ).all()
+        ]
+
+    if reference_ids:
+        db.session.query(DetectionResult).filter(
+            DetectionResult.reference_id.in_(reference_ids)
+        ).delete(synchronize_session=False)
+
+    if document_ids:
+        db.session.query(ExtractedReference).filter(
+            ExtractedReference.document_id.in_(document_ids)
+        ).delete(synchronize_session=False)
+
+    db.session.query(Notification).filter_by(user_id=user.id).delete(
+        synchronize_session=False,
+    )
+    db.session.query(DocumentWatch).filter_by(user_id=user.id).delete(
+        synchronize_session=False,
+    )
+    db.session.query(AnalysisJob).filter_by(user_id=user.id).delete(
+        synchronize_session=False,
+    )
+    db.session.query(EmailVerificationToken).filter_by(user_id=user.id).delete(
+        synchronize_session=False,
+    )
+    db.session.query(PasswordResetToken).filter_by(user_id=user.id).delete(
+        synchronize_session=False,
+    )
+
+    for document in UploadedDocument.query.filter_by(user_id=user.id).all():
+        db.session.delete(document)
+
+    db.session.commit()
 
 
 def register_auth_routes(app):
@@ -315,4 +373,206 @@ def register_auth_routes(app):
                 "id": user.id,
                 "email": user.email,
             },
+        }), 200
+
+    @app.route("/api/account", methods=["GET"])
+    @login_required
+    def get_account_details():
+        user = db.session.get(User, current_user_id())
+        if user is None:
+            session.clear()
+            return authentication_required()
+
+        return jsonify({
+            "status": "success",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "email_verified": user.email_verified,
+            },
+        }), 200
+
+    @app.route("/api/account/email", methods=["POST"])
+    @login_required
+    def change_account_email():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({
+                "status": "error",
+                "message": "A JSON request body is required.",
+            }), 400
+
+        current_password = data.get("current_password")
+        new_email = data.get("new_email")
+
+        if not isinstance(current_password, str) or not isinstance(new_email, str):
+            return jsonify({
+                "status": "error",
+                "message": "Current password and a new email are required.",
+            }), 400
+
+        user = db.session.get(User, current_user_id())
+        if user is None:
+            session.clear()
+            return authentication_required()
+
+        if not check_password_hash(user.password_hash, current_password):
+            return jsonify({
+                "status": "error",
+                "message": "Current password is incorrect.",
+            }), 401
+
+        normalized_email = normalize_email(new_email)
+        if not normalized_email or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", normalized_email):
+            return jsonify({
+                "status": "error",
+                "message": "Enter a valid email address.",
+            }), 400
+
+        if user.email == normalized_email:
+            return jsonify({
+                "status": "success",
+                "message": "This is already your current email address.",
+            }), 200
+
+        existing_user = User.query.filter_by(email=normalized_email).first()
+        if existing_user is not None and existing_user.id != user.id:
+            return jsonify({
+                "status": "error",
+                "message": "An account with this email already exists.",
+            }), 400
+
+        user.email = normalized_email
+        user.email_verified = False
+        db.session.commit()
+
+        token = issue_verification_token(user.id)
+        try:
+            send_verification_email(user.email, token)
+        except Exception:
+            app.logger.exception(
+                "Account %s changed its email, but verification mail could not be sent.",
+                user.id,
+            )
+
+        return jsonify({
+            "status": "success",
+            "message": "Email changed successfully. Please confirm the new address.",
+        }), 200
+
+    @app.route("/api/account/password", methods=["POST"])
+    @login_required
+    def change_account_password():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({
+                "status": "error",
+                "message": "A JSON request body is required.",
+            }), 400
+
+        current_password = data.get("current_password")
+        new_password = data.get("new_password")
+
+        if not isinstance(current_password, str) or not isinstance(new_password, str):
+            return jsonify({
+                "status": "error",
+                "message": "Current password and a new password are required.",
+            }), 400
+
+        user = db.session.get(User, current_user_id())
+        if user is None:
+            session.clear()
+            return authentication_required()
+
+        if not check_password_hash(user.password_hash, current_password):
+            return jsonify({
+                "status": "error",
+                "message": "Current password is incorrect.",
+            }), 401
+
+        if len(new_password) < 12 or len(new_password) > 1024:
+            return jsonify({
+                "status": "error",
+                "message": "Password must contain at least 12 characters.",
+            }), 400
+
+        user.password_hash = generate_password_hash(new_password)
+        db.session.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": "Password changed successfully.",
+        }), 200
+
+    @app.route("/api/account/clear-history", methods=["POST"])
+    @login_required
+    def clear_account_history():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({
+                "status": "error",
+                "message": "A JSON request body is required.",
+            }), 400
+
+        current_password = data.get("current_password")
+        if not isinstance(current_password, str):
+            return jsonify({
+                "status": "error",
+                "message": "Current password is required to clear your history.",
+            }), 400
+
+        user = db.session.get(User, current_user_id())
+        if user is None:
+            session.clear()
+            return authentication_required()
+
+        if not check_password_hash(user.password_hash, current_password):
+            return jsonify({
+                "status": "error",
+                "message": "Current password is incorrect.",
+            }), 401
+
+        clear_user_history(user)
+
+        return jsonify({
+            "status": "success",
+            "message": "Your document history has been cleared.",
+        }), 200
+
+    @app.route("/api/account", methods=["DELETE"])
+    @login_required
+    def delete_account():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({
+                "status": "error",
+                "message": "A JSON request body is required.",
+            }), 400
+
+        current_password = data.get("current_password")
+        if not isinstance(current_password, str):
+            return jsonify({
+                "status": "error",
+                "message": "Current password is required to delete your account.",
+            }), 400
+
+        user = db.session.get(User, current_user_id())
+        if user is None:
+            session.clear()
+            return authentication_required()
+
+        if not check_password_hash(user.password_hash, current_password):
+            return jsonify({
+                "status": "error",
+                "message": "Current password is incorrect.",
+            }), 401
+
+        clear_user_history(user)
+        db.session.delete(user)
+        db.session.commit()
+        session.clear()
+
+        return jsonify({
+            "status": "success",
+            "message": "Your account and history have been deleted.",
         }), 200

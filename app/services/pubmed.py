@@ -2,6 +2,7 @@
 import logging
 import os
 import time
+from urllib.error import HTTPError
 
 from Bio import Entrez
 from dotenv import load_dotenv
@@ -15,45 +16,76 @@ logger = logging.getLogger(__name__)
 
 # NCBI configuration
 Entrez.email = os.getenv("NCBI_EMAIL")
+Entrez.api_key = os.getenv("NCBI_API_KEY")
 Entrez.timeout = 20
 Entrez.max_tries = 2
 
 PUBMED_REQUEST_DELAY = 0.34
+PUBMED_RATE_LIMIT_RETRIES = int(os.getenv("PUBMED_RATE_LIMIT_RETRIES", "4"))
+PUBMED_RATE_LIMIT_BACKOFF_SECONDS = float(
+    os.getenv("PUBMED_RATE_LIMIT_BACKOFF_SECONDS", "1.0")
+)
+PUBMED_RATE_LIMIT_MAX_BACKOFF_SECONDS = float(
+    os.getenv("PUBMED_RATE_LIMIT_MAX_BACKOFF_SECONDS", "30.0")
+)
 
 
 def pubmed_search(query: str) -> str | None:
     """Search PubMed and return the first matching PMID."""
 
-    handle = None
+    for attempt in range(PUBMED_RATE_LIMIT_RETRIES + 1):
+        handle = None
 
-    try:
-        handle = Entrez.esearch(
-            db="pubmed",
-            term=query,
-        )
+        try:
+            handle = Entrez.esearch(
+                db="pubmed",
+                term=query,
+            )
 
-        record = Entrez.read(handle)
-        ids = record.get("IdList", [])
+            record = Entrez.read(handle)
+            ids = record.get("IdList", [])
 
-        return str(ids[0]) if ids else None
+            time.sleep(PUBMED_REQUEST_DELAY)
+            return str(ids[0]) if ids else None
 
-    except Exception:
-        logger.exception(
-            "PubMed search failed for query: %s",
-            query,
-        )
-        return None
-
-    finally:
-        if handle is not None:
-            try:
-                handle.close()
-            except Exception:
-                logger.warning(
-                    "Could not close PubMed response handle."
+        except HTTPError as exc:
+            if exc.code == 429 and attempt < PUBMED_RATE_LIMIT_RETRIES:
+                delay = min(
+                    PUBMED_RATE_LIMIT_BACKOFF_SECONDS * (2**attempt),
+                    PUBMED_RATE_LIMIT_MAX_BACKOFF_SECONDS,
                 )
+                logger.warning(
+                    "PubMed rate limited for query '%s'; retrying in %.1f seconds "
+                    "(%s/%s)",
+                    query,
+                    delay,
+                    attempt + 1,
+                    PUBMED_RATE_LIMIT_RETRIES,
+                )
+                time.sleep(delay)
+                continue
 
-        time.sleep(PUBMED_REQUEST_DELAY)
+            logger.exception(
+                "PubMed search failed for query: %s",
+                query,
+            )
+            return None
+
+        except Exception:
+            logger.exception(
+                "PubMed search failed for query: %s",
+                query,
+            )
+            return None
+
+        finally:
+            if handle is not None:
+                try:
+                    handle.close()
+                except Exception:
+                    logger.warning(
+                        "Could not close PubMed response handle."
+                    )
 
 
 def get_pmid(doi: str | None) -> str | None:

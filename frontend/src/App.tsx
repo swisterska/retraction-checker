@@ -715,15 +715,37 @@ function Dashboard({
   const [message, setMessage] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [documentQuery, setDocumentQuery] = useState("");
+  const [manageDocuments, setManageDocuments] = useState(false);
+  const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
   const [watchList, setWatchList] = useState<number[]>([]);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [accountAction, setAccountAction] = useState<
+    "email" | "password" | "clear" | "delete" | null
+  >(null);
+  const [accountForm, setAccountForm] = useState({
+    current_password: "",
+    new_email: "",
+    new_password: "",
+  });
   const [jobToCancel, setJobToCancel] = useState<{
     job_id: string;
     filename: string;
   } | null>(null);
   const [activeJobs, setActiveJobs] = useState<
-    { job_id: string; filename: string }[]
+    {
+      job_id: string;
+      filename: string;
+      status: "queued" | "running" | "failed";
+      error_code?: string;
+    }[]
   >([]);
+
+  const visibleDocuments = documents.filter((doc) =>
+    doc.filename
+      .toLowerCase()
+      .includes(documentQuery.trim().toLowerCase()),
+  );
 
   const load = useCallback(async () => {
     try {
@@ -750,7 +772,12 @@ function Dashboard({
     const refreshJobs = async () => {
       try {
         const result = await request<{
-          jobs: { job_id: string; filename: string }[];
+          jobs: {
+            job_id: string;
+            filename: string;
+            status: "queued" | "running" | "failed";
+            error_code?: string;
+          }[];
         }>("/jobs");
         if (!active) return;
         setActiveJobs(result.jobs);
@@ -761,7 +788,7 @@ function Dashboard({
       }
     };
     void refreshJobs();
-    const interval = window.setInterval(() => void refreshJobs(), 3000);
+    const interval = window.setInterval(() => void refreshJobs(), 15000);
     return () => {
       active = false;
       window.clearInterval(interval);
@@ -769,44 +796,17 @@ function Dashboard({
   }, [load]);
 
   useEffect(() => {
-    let active = true;
-
-    async function loadInitialDocuments() {
-      try {
-        const [documentsResult, watchListResult] = await Promise.all([
-          request<{ documents: Document[] }>("/documents"),
-          request<{ watchlist: number[] }>("/documents/watchlist"),
-        ]);
-
-        if (active) {
-          setDocuments((current) =>
-            mergeDocuments(current, documentsResult.documents),
-          );
-          setWatchList(watchListResult.watchlist ?? []);
-        }
-      } catch (cause) {
-        if (active) {
-          setUploadError(
-            cause instanceof Error
-              ? cause.message
-              : "Could not load documents.",
-          );
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadInitialDocuments();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    void load();
+  }, [load]);
   async function upload(file?: File) {
     if (!file) return;
+    const filename = file.name || "";
+    if (!filename.toLowerCase().endsWith(".pdf")) {
+      setUploadError(
+        "This file is not a PDF. Rename it so it ends with .pdf and try again.",
+      );
+      return;
+    }
     setUploadError("");
     setMessage("");
     setError("");
@@ -920,6 +920,47 @@ function Dashboard({
     }
   }
 
+  async function deleteSelectedDocuments() {
+    if (selectedDocuments.length === 0) return;
+
+    const batch = documents.filter((doc) => selectedDocuments.includes(doc.id));
+    const batchIds = batch.map((doc) => doc.id);
+
+    setUploadError("");
+    setMessage("");
+    setDocuments((current) =>
+      current.filter((document) => !batchIds.includes(document.id)),
+    );
+    setWatchList((current) =>
+      current.filter((documentId) => !batchIds.includes(documentId)),
+    );
+    setSelectedDocuments([]);
+    setManageDocuments(false);
+
+    try {
+      const csrf = await request<{ csrf_token: string }>("/csrf");
+      await Promise.all(
+        batchIds.map((documentId) =>
+          request(`/documents/${documentId}`, {
+            method: "DELETE",
+            headers: { "X-CSRF-Token": csrf.csrf_token },
+          }),
+        ),
+      );
+      setMessage(
+        `Deleted ${batch.length} ${batch.length === 1 ? "document" : "documents"}.`,
+      );
+    } catch (cause) {
+      setDocuments((current) => mergeDocuments(current, batch));
+      setWatchList((current) => [...new Set([...current, ...batchIds])]);
+      setSelectedDocuments(batchIds);
+      setManageDocuments(true);
+      setUploadError(
+        cause instanceof Error ? cause.message : "Could not delete selected documents.",
+      );
+    }
+  }
+
   async function toggleWatchList(documentId: number) {
     const isCurrentlyWatched = watchList.includes(documentId);
     setWatchList((current) => {
@@ -950,17 +991,216 @@ function Dashboard({
     }
   }
 
+  async function submitAccountAction(event: FormEvent) {
+    event.preventDefault();
+    if (!accountAction) return;
+
+    setUploadError("");
+    setMessage("");
+
+    try {
+      const csrf = await request<{ csrf_token: string }>("/csrf");
+
+      if (accountAction === "email") {
+        const newEmail = accountForm.new_email.trim();
+        if (!accountForm.current_password.trim()) {
+          throw new Error("Current password is required.");
+        }
+        if (!newEmail) {
+          throw new Error("A new email is required.");
+        }
+        const result = await request<{ message: string }>('/account/email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf.csrf_token,
+          },
+          body: JSON.stringify({
+            current_password: accountForm.current_password,
+            new_email: newEmail,
+          }),
+        });
+        setMessage(result.message);
+        window.location.reload();
+      }
+
+      if (accountAction === "password") {
+        const newPassword = accountForm.new_password.trim();
+        if (!accountForm.current_password.trim()) {
+          throw new Error("Current password is required.");
+        }
+        if (!newPassword) {
+          throw new Error("A new password is required.");
+        }
+        const result = await request<{ message: string }>('/account/password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf.csrf_token,
+          },
+          body: JSON.stringify({
+            current_password: accountForm.current_password,
+            new_password: newPassword,
+          }),
+        });
+        setMessage(result.message);
+      }
+
+      if (accountAction === "clear") {
+        if (!accountForm.current_password.trim()) {
+          throw new Error("Current password is required.");
+        }
+        const result = await request<{ message: string }>('/account/clear-history', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf.csrf_token,
+          },
+          body: JSON.stringify({ current_password: accountForm.current_password }),
+        });
+        setMessage(result.message);
+        await load();
+      }
+
+      if (accountAction === "delete") {
+        if (!accountForm.current_password.trim()) {
+          throw new Error("Current password is required.");
+        }
+        const confirmed = window.confirm(
+          'This will permanently delete your account and all saved history. Continue?',
+        );
+        if (!confirmed) return;
+        const result = await request<{ message: string }>('/account', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf.csrf_token,
+          },
+          body: JSON.stringify({ current_password: accountForm.current_password }),
+        });
+        setMessage(result.message);
+        onLogout();
+      }
+
+      setAccountForm({ current_password: '', new_email: '', new_password: '' });
+      setAccountAction(null);
+      setAccountMenuOpen(false);
+    } catch (cause) {
+      setUploadError(
+        cause instanceof Error ? cause.message : 'Could not update account settings.',
+      );
+    }
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
         <Brand />
         <div className="account">
+          <button
+            type="button"
+            className="account-management-button"
+            onClick={() => setAccountMenuOpen((current) => !current)}
+          >
+            Manage account
+          </button>
           <span>{user.email}</span>
           <button className="quiet-button" onClick={onLogout}>
             Sign out
           </button>
         </div>
       </header>
+      {accountMenuOpen && (
+        <div className="account-panel-shell">
+          <div className="account-panel">
+            <div className="account-panel-header">
+              <p className="eyebrow">ACCOUNT</p>
+              <button
+                type="button"
+                className="quiet-button"
+                onClick={() => setAccountMenuOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="account-action-buttons">
+              <button type="button" onClick={() => setAccountAction('email')}>
+                Change email
+              </button>
+              <button type="button" onClick={() => setAccountAction('password')}>
+                Change password
+              </button>
+              <button type="button" onClick={() => setAccountAction('clear')}>
+                Clear history
+              </button>
+              <button type="button" className="danger-button" onClick={() => setAccountAction('delete')}>
+                Delete account
+              </button>
+            </div>
+            {accountAction && (
+              <form className="account-form" onSubmit={submitAccountAction}>
+                <label>
+                  Current password
+                  <input
+                    type="password"
+                    value={accountForm.current_password}
+                    onChange={(event) =>
+                      setAccountForm((current) => ({
+                        ...current,
+                        current_password: event.target.value,
+                      }))
+                    }
+                    placeholder="Enter your current password"
+                  />
+                </label>
+                {accountAction === 'email' && (
+                  <label>
+                    New email
+                    <input
+                      type="email"
+                      value={accountForm.new_email}
+                      onChange={(event) =>
+                        setAccountForm((current) => ({
+                          ...current,
+                          new_email: event.target.value,
+                        }))
+                      }
+                      placeholder="new.email@example.com"
+                    />
+                  </label>
+                )}
+                {accountAction === 'password' && (
+                  <label>
+                    New password
+                    <input
+                      type="password"
+                      value={accountForm.new_password}
+                      onChange={(event) =>
+                        setAccountForm((current) => ({
+                          ...current,
+                          new_password: event.target.value,
+                        }))
+                      }
+                      placeholder="At least 12 characters"
+                    />
+                  </label>
+                )}
+                <div className="account-form-actions">
+                  <button type="button" className="quiet-button" onClick={() => setAccountAction(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="primary-button">
+                    {accountAction === 'email' && 'Update email'}
+                    {accountAction === 'password' && 'Update password'}
+                    {accountAction === 'clear' && 'Clear history'}
+                    {accountAction === 'delete' && 'Delete account'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
       <main className="dashboard">
         <div className="welcome">
           <div>
@@ -1009,16 +1249,32 @@ function Dashboard({
             {activeJobs.map((job) => (
               <div className="queue-item" key={job.job_id}>
                 <p>
-                  Analysis in progress: <strong>{job.filename}</strong>.
+                  {job.status === "failed" ? (
+                    <>
+                      Analysis failed for <strong>{job.filename}</strong>.
+                      {job.error_code === "GROBID_EMPTY_RESPONSE" && (
+                        <span> GROBID did not return a valid PDF reference list. This usually means the file is not a readable PDF or has no extractable references.</span>
+                      )}
+                      {job.error_code !== "GROBID_EMPTY_RESPONSE" && job.error_code && (
+                        <span> Error code: {job.error_code}.</span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      Analysis in progress: <strong>{job.filename}</strong>.
+                    </>
+                  )}
                 </p>
-                <button
-                  type="button"
-                  className="queue-cancel-button"
-                  aria-label={`Cancel ${job.filename}`}
-                  onClick={() => setJobToCancel(job)}
-                >
-                  ×
-                </button>
+                {job.status !== "failed" && (
+                  <button
+                    type="button"
+                    className="queue-cancel-button"
+                    aria-label={`Cancel ${job.filename}`}
+                    onClick={() => setJobToCancel(job)}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             ))}
           </section>
@@ -1068,12 +1324,51 @@ function Dashboard({
                   placeholder="Search by document name"
                   aria-label="Search documents by name"
                 />
+                <button
+                  type="button"
+                  className="manage-documents-button"
+                  onClick={() => setManageDocuments((current) => !current)}
+                >
+                  {manageDocuments ? "Close manage" : "Manage documents"}
+                </button>
               </div>
-              {documents.filter((doc) =>
-                doc.filename
-                  .toLowerCase()
-                  .includes(documentQuery.trim().toLowerCase()),
-              ).length === 0 ? (
+              {manageDocuments && (
+                <div className="document-management-bar">
+                  <label className="selection-toggle">
+                    <input
+                      type="checkbox"
+                      checked={
+                        visibleDocuments.length > 0 &&
+                        visibleDocuments.every((doc) =>
+                          selectedDocuments.includes(doc.id),
+                        )
+                      }
+                      onChange={() => {
+                        const visibleIds = visibleDocuments.map((doc) => doc.id);
+                        setSelectedDocuments((current) => {
+                          const allSelected = visibleIds.every((id) =>
+                            current.includes(id),
+                          );
+                          if (allSelected) {
+                            return current.filter((id) => !visibleIds.includes(id));
+                          }
+                          return [...new Set([...current, ...visibleIds])];
+                        });
+                      }}
+                    />
+                    Select visible
+                  </label>
+                  <button
+                    type="button"
+                    className="bulk-delete-button"
+                    disabled={selectedDocuments.length === 0}
+                    onClick={() => void deleteSelectedDocuments()}
+                  >
+                    Delete all ({selectedDocuments.length})
+                  </button>
+                </div>
+              )}
+              {visibleDocuments.length === 0 ? (
                 <div className="empty-state">
                   <span className="empty-icon">⌕</span>
                   <h3>No matching documents</h3>
@@ -1081,86 +1376,98 @@ function Dashboard({
                 </div>
               ) : (
                 <div className="document-list">
-                  {documents
-                    .filter((doc) =>
-                      doc.filename
-                        .toLowerCase()
-                        .includes(documentQuery.trim().toLowerCase()),
-                    )
-                    .map((doc) => (
-                      <div className="document-row" key={doc.id}>
-                        <Link
-                          className="document-row-open"
-                          to={`/documents/${doc.id}`}
+                  {visibleDocuments.map((doc) => (
+                    <div
+                      className={`document-row ${manageDocuments ? "selection-mode" : ""}`}
+                      key={doc.id}
+                    >
+                      {manageDocuments && (
+                        <label className="document-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={selectedDocuments.includes(doc.id)}
+                            onChange={() =>
+                              setSelectedDocuments((current) =>
+                                current.includes(doc.id)
+                                  ? current.filter((id) => id !== doc.id)
+                                  : [...current, doc.id],
+                              )
+                            }
+                          />
+                        </label>
+                      )}
+                      <Link
+                        className="document-row-open"
+                        to={`/documents/${doc.id}`}
+                      >
+                        <span className="pdf-icon">PDF</span>
+                        <span className="document-name">
+                          <strong>{doc.filename}</strong>
+                          <small>
+                            {new Date(doc.upload_date).toLocaleDateString()} ·{" "}
+                            {doc.total_references} references
+                          </small>
+                        </span>
+                        <span
+                          className={
+                            doc.retracted_references
+                              ? "result-badge warning"
+                              : "result-badge clear"
+                          }
                         >
-                          <span className="pdf-icon">PDF</span>
-                          <span className="document-name">
-                            <strong>{doc.filename}</strong>
-                            <small>
-                              {new Date(doc.upload_date).toLocaleDateString()} ·{" "}
-                              {doc.total_references} references
-                            </small>
-                          </span>
-                          <span
-                            className={
-                              doc.retracted_references
-                                ? "result-badge warning"
-                                : "result-badge clear"
-                            }
-                          >
-                            {doc.retracted_references
-                              ? `${doc.retracted_references} retracted`
-                              : "No retractions"}
-                          </span>
-                          <span className="row-arrow">→</span>
-                        </Link>
-                        <div className="document-actions">
-                          <button
-                            className="watch-button"
-                            type="button"
-                            aria-label={
-                              watchList.includes(doc.id)
-                                ? `Remove ${doc.filename} from watch list`
-                                : `Add ${doc.filename} to watch list`
-                            }
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              toggleWatchList(doc.id);
-                            }}
-                          >
-                            {watchList.includes(doc.id) ? "★" : "☆"}
-                          </button>
-                          <button
-                            className="refresh-button"
-                            type="button"
-                            disabled={refreshingId === doc.id}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              void refreshDocument(doc.id);
-                            }}
-                          >
-                            {refreshingId === doc.id
-                              ? "Refreshing…"
-                              : "Refresh"}
-                          </button>
-                          <button
-                            className="delete-button"
-                            type="button"
-                            disabled={deletingId === doc.id}
-                            aria-label={`Delete ${doc.filename}`}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              setDocumentToDelete(doc);
-                            }}
-                          >
-                            {deletingId === doc.id ? "Deleting…" : "Delete"}
-                          </button>
-                        </div>
+                          {doc.retracted_references
+                            ? `${doc.retracted_references} retracted`
+                            : "No retractions"}
+                        </span>
+                        <span className="row-arrow">→</span>
+                      </Link>
+                      <div className="document-actions">
+                        <button
+                          className="watch-button"
+                          type="button"
+                          aria-label={
+                            watchList.includes(doc.id)
+                              ? `Remove ${doc.filename} from watch list`
+                              : `Add ${doc.filename} to watch list`
+                          }
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            toggleWatchList(doc.id);
+                          }}
+                        >
+                          {watchList.includes(doc.id) ? "★" : "☆"}
+                        </button>
+                        <button
+                          className="refresh-button"
+                          type="button"
+                          disabled={refreshingId === doc.id}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            void refreshDocument(doc.id);
+                          }}
+                        >
+                          {refreshingId === doc.id
+                            ? "Refreshing…"
+                            : "Refresh"}
+                        </button>
+                        <button
+                          className="delete-button"
+                          type="button"
+                          disabled={deletingId === doc.id}
+                          aria-label={`Delete ${doc.filename}`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setDocumentToDelete(doc);
+                          }}
+                        >
+                          {deletingId === doc.id ? "Deleting…" : "Delete"}
+                        </button>
                       </div>
-                    ))}
+                    </div>
+                  ))}
                 </div>
               )}
             </>

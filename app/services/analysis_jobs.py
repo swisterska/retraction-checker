@@ -17,10 +17,17 @@ from app.services.pdf_validation import PdfValidationError, validate_pdf
 
 def enqueue_pdf(uploaded_file, *, user_id=None, guest_owner=None, email):
     """Validate and persist an upload, then add a durable queue row."""
-    if not uploaded_file.filename or Path(uploaded_file.filename).suffix.lower() != ".pdf":
+    filename = getattr(uploaded_file, "filename", "") or ""
+    if not filename:
+        raise PdfValidationError(
+            "FILE_MISSING",
+            "Please choose a PDF file to upload.",
+            400,
+        )
+    if Path(filename).suffix.lower() != ".pdf":
         raise PdfValidationError(
             "INVALID_FILE_FORMAT",
-            "Invalid file format. Please upload a valid PDF file.",
+            "This file is not a PDF. Rename it so it ends with .pdf and try again.",
             400,
         )
     uploaded_file.stream.seek(0, os.SEEK_END)

@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from flask import current_app, jsonify, request, session
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.database import db
 from app.models import (
@@ -101,17 +101,18 @@ def cleanup_stale_uploads(upload_dir: Path, max_age_seconds=24 * 60 * 60):
 def temporary_uploaded_pdf(app, uploaded_file):
     """Validate, temporarily save, and always remove an uploaded PDF."""
 
-    if not uploaded_file.filename:
+    filename = getattr(uploaded_file, "filename", "") or ""
+    if not filename:
         raise PdfValidationError(
             "FILE_MISSING",
             "Please choose a PDF file to upload.",
             400,
         )
 
-    if Path(uploaded_file.filename).suffix.lower() != ".pdf":
+    if Path(filename).suffix.lower() != ".pdf":
         raise PdfValidationError(
             "INVALID_FILE_FORMAT",
-            "Invalid file format. Please upload a valid PDF file.",
+            "This file is not a PDF. Rename it so it ends with .pdf and try again.",
             400,
         )
 
@@ -364,7 +365,7 @@ def register_document_routes(app):
         jobs = (
             AnalysisJob.query.filter(
                 AnalysisJob.user_id == current_user_id(),
-                AnalysisJob.status.in_(["queued", "running"]),
+                AnalysisJob.status.in_(["queued", "running", "failed"]),
             )
             .order_by(AnalysisJob.created_at.desc())
             .all()
@@ -823,8 +824,9 @@ def register_document_routes(app):
         documents = (
             UploadedDocument.query
             .options(
-                selectinload(UploadedDocument.references)
-                .selectinload(ExtractedReference.detection_results)
+                joinedload(UploadedDocument.references)
+                .joinedload(ExtractedReference.detection_results),
+                joinedload(UploadedDocument.watch_entries),
             )
             .filter_by(user_id=current_user_id())
             .order_by(UploadedDocument.upload_date.desc())
@@ -834,10 +836,9 @@ def register_document_routes(app):
         document_list = []
         watched_document_ids = {
             entry.document_id
-            for entry in DocumentWatch.query.filter_by(
-                user_id=current_user_id(),
-                is_active=True,
-            ).all()
+            for document in documents
+            for entry in document.watch_entries
+            if entry.user_id == current_user_id() and entry.is_active
         }
 
         for document in sorted(
