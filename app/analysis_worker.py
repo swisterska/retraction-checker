@@ -13,6 +13,7 @@ from app.main import create_app
 from app.models import AnalysisJob, Notification, User
 from app.route_modules.documents import guest_report_payload
 from app.run_grobid_pipeline import process_pdf
+from app.services.grobid import GrobidServiceError
 from app.services.analysis_jobs import guest_access_token, utcnow
 from app.services.database_service import save_analysis_results
 from app.services.retraction_monitor import (
@@ -149,7 +150,16 @@ def process_next_job(app):
             db.session.rollback()
             job = db.session.get(AnalysisJob, job.id)
             job.status = "failed"
-            job.error_code = "NO_REFERENCES_FOUND" if str(exc) == "NO_REFERENCES_FOUND" else "ANALYSIS_FAILED"
+            if str(exc) == "NO_REFERENCES_FOUND":
+                job.error_code = "NO_REFERENCES_FOUND"
+            elif isinstance(exc, GrobidServiceError):
+                job.error_code = (
+                    "GROBID_EMPTY_RESPONSE"
+                    if "empty response" in str(exc).lower()
+                    else "GROBID_UNAVAILABLE"
+                )
+            else:
+                job.error_code = "ANALYSIS_FAILED"
             job.finished_at = utcnow()
             job.updated_at = utcnow()
             db.session.commit()

@@ -95,6 +95,23 @@ def test_parse_references_handles_http_error(tmp_path, monkeypatch):
         parse_references(str(pdf))
 
 
+def test_parse_references_retries_empty_response(tmp_path, monkeypatch):
+    pdf = tmp_path / "test.pdf"
+    pdf.write_bytes(b"%PDF-test")
+
+    responses = iter([FakeResponse("   "), FakeResponse(VALID_TEI)])
+    monkeypatch.setattr(
+        grobid.requests,
+        "post",
+        lambda *args, **kwargs: next(responses),
+    )
+    monkeypatch.setattr(grobid.time, "sleep", lambda *_args, **_kwargs: None)
+
+    result = parse_references(str(pdf))
+
+    assert result == VALID_TEI.strip()
+
+
 def test_parse_references_rejects_empty_response(tmp_path, monkeypatch):
     pdf = tmp_path / "test.pdf"
     pdf.write_bytes(b"%PDF-test")
@@ -107,6 +124,40 @@ def test_parse_references_rejects_empty_response(tmp_path, monkeypatch):
 
     with pytest.raises(GrobidServiceError, match="empty response"):
         parse_references(str(pdf))
+
+
+def test_parse_references_uses_fulltext_fallback_after_empty_responses(
+    tmp_path,
+    monkeypatch,
+):
+    pdf = tmp_path / "test.pdf"
+    pdf.write_bytes(b"%PDF-test")
+    responses = iter(
+        [
+            FakeResponse("", status_code=204),
+            FakeResponse("", status_code=204),
+            FakeResponse("", status_code=204),
+            FakeResponse(VALID_TEI),
+        ]
+    )
+    requested_urls = []
+
+    def fake_post(url, **_kwargs):
+        requested_urls.append(url)
+        return next(responses)
+
+    monkeypatch.setattr(grobid.requests, "post", fake_post)
+    monkeypatch.setattr(grobid.time, "sleep", lambda *_args: None)
+
+    result = parse_references(str(pdf))
+
+    assert result == VALID_TEI.strip()
+    assert requested_urls == [
+        grobid.GROBID_URL,
+        grobid.GROBID_URL,
+        grobid.GROBID_URL,
+        grobid.GROBID_FULLTEXT_URL,
+    ]
 
 
 def test_parse_references_rejects_invalid_xml(tmp_path, monkeypatch):

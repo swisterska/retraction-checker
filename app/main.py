@@ -1,6 +1,8 @@
 
 import logging
 import os
+import subprocess
+import sys
 
 from logging.handlers import RotatingFileHandler
 
@@ -73,6 +75,34 @@ def configure_logging(app: Flask) -> None:
     else:
         for handler in logger.handlers:
             handler.setLevel(log_level)
+
+
+def start_analysis_worker():
+    """Launch the background worker for queued PDF analyses."""
+    if os.environ.get("AUTO_START_ANALYSIS_WORKER", "true").lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return None
+
+    command = [sys.executable, "-m", "app.analysis_worker"]
+    return subprocess.Popen(
+        command,
+        start_new_session=True,
+    )
+
+
+def run_server(app, port):
+    """Run Flask and keep its worker lifecycle tied to the server process."""
+    worker = start_analysis_worker()
+    try:
+        app.run(host="127.0.0.1", port=port)
+    finally:
+        if worker is not None and worker.poll() is None:
+            worker.terminate()
+            worker.wait(timeout=10)
 
 
 def create_app(test_config=None):
@@ -172,4 +202,5 @@ def create_app(test_config=None):
 
 if __name__ == "__main__":
     app = create_app()
-    app.run()
+    port = int(os.environ.get("PORT", os.environ.get("FLASK_RUN_PORT", "5001")))
+    run_server(app, port)

@@ -141,6 +141,11 @@ def extract_references(xml_text: str) -> list[dict]:
                 year = int(match.group(0))
                 break
 
+        # Full-document GROBID output can contain a placeholder biblStruct
+        # outside the actual bibliography. Keep only entries with metadata.
+        if not (title or doi or authors or year):
+            continue
+
         references.append({
             "title": title,
             "doi": doi,

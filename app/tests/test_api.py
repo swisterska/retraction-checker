@@ -1,5 +1,6 @@
 
 import io
+import sys
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,55 @@ def switch_to_guest(client):
     logout_response = client.post("/api/logout")
     assert logout_response.status_code == 200
     return client.get("/api/csrf").json["csrf_token"]
+
+
+def test_main_starts_analysis_worker_when_run_as_script(monkeypatch):
+    import app.main as app_main
+
+    captured = {}
+
+    def fake_popen(command, **kwargs):
+        captured["command"] = command
+        captured["kwargs"] = kwargs
+        return object()
+
+    monkeypatch.setattr(app_main.subprocess, "Popen", fake_popen)
+    monkeypatch.setenv("AUTO_START_ANALYSIS_WORKER", "true")
+
+    app_main.start_analysis_worker()
+
+    assert captured["command"][:3] == [sys.executable, "-m", "app.analysis_worker"]
+    assert captured["kwargs"]["start_new_session"] is True
+
+
+def test_main_stops_worker_if_server_cannot_start(monkeypatch):
+    import app.main as app_main
+
+    class FakeWorker:
+        terminated = False
+        waited = False
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            self.terminated = True
+
+        def wait(self, timeout):
+            self.waited = timeout == 10
+
+    class FakeApp:
+        def run(self, **_kwargs):
+            raise OSError("port already in use")
+
+    worker = FakeWorker()
+    monkeypatch.setattr(app_main, "start_analysis_worker", lambda: worker)
+
+    with pytest.raises(OSError, match="port already in use"):
+        app_main.run_server(FakeApp(), 5003)
+
+    assert worker.terminated is True
+    assert worker.waited is True
 
 
 @pytest.fixture
@@ -761,6 +811,56 @@ def test_guest_background_job_requires_email_and_email_link_opens_report(client)
     allowed = other_browser.get(f"/api/guest/reports/{job_id}?access={access}")
     assert allowed.status_code == 200
     assert allowed.json["status"] == "queued"
+
+
+def test_failed_jobs_remain_visible_to_the_user(client, monkeypatch):
+    from app.models import AnalysisJob
+
+    queued = client.post(
+        "/api/jobs",
+        data={"file": (io.BytesIO(valid_pdf_bytes()), "failed-job.pdf")},
+        content_type="multipart/form-data",
+    )
+    assert queued.status_code == 202
+    job_id = queued.json["job_id"]
+
+    with client.application.app_context():
+        job = db.session.get(AnalysisJob, job_id)
+        job.status = "failed"
+        job.error_code = "GROBID_EMPTY_RESPONSE"
+        db.session.commit()
+
+    jobs = client.get("/api/jobs").json["jobs"]
+    failed = next(item for item in jobs if item["job_id"] == job_id)
+    assert failed["status"] == "failed"
+    assert failed["error_code"] == "GROBID_EMPTY_RESPONSE"
+
+
+def test_worker_records_grobid_empty_response_code(client, monkeypatch):
+    from app import analysis_worker
+    from app.models import AnalysisJob
+    from app.services.grobid import GrobidServiceError
+
+    queued = client.post(
+        "/api/jobs",
+        data={"file": (io.BytesIO(valid_pdf_bytes()), "empty-response.pdf")},
+        content_type="multipart/form-data",
+    )
+    assert queued.status_code == 202
+
+    def return_empty_grobid_response(_path):
+        raise GrobidServiceError("GROBID returned an empty response.")
+
+    monkeypatch.setattr(
+        "app.analysis_worker.process_pdf",
+        return_empty_grobid_response,
+    )
+    assert analysis_worker.process_next_job(client.application)
+
+    with client.application.app_context():
+        job = db.session.get(AnalysisJob, queued.json["job_id"])
+        assert job.status == "failed"
+        assert job.error_code == "GROBID_EMPTY_RESPONSE"
 
 
 def test_completed_job_stays_saved_when_email_settings_are_missing(client, monkeypatch):

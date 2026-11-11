@@ -127,3 +127,13 @@ def test_returns_empty_list_when_no_references_exist():
     result = parse_bibliography()
 
     assert result == []
+
+
+def test_skips_empty_placeholder_bibliography_entries():
+    result = parse_bibliography(
+        "<biblStruct><analytic><title>Real citation</title></analytic></biblStruct>",
+        "<biblStruct><analytic/></biblStruct>",
+    )
+
+    assert len(result) == 1
+    assert result[0]["title"] == "Real citation"
