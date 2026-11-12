@@ -46,6 +46,14 @@ from app.route_modules.helpers import (
 
 
 TEMPORARY_PDF_PATTERN = re.compile(r"^[0-9a-f]{32}\.pdf$")
+
+
+def _utc_isoformat(value):
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat()
 guest_reports = GuestReportStore(ttl_seconds=60 * 60, max_reports=256, start_expirer=True)
 
 
@@ -420,6 +428,12 @@ def register_document_routes(app):
                 "filename": job.filename,
             }), 200
 
+        if job.status == "failed":
+            Path(job.pdf_path).unlink(missing_ok=True)
+            db.session.delete(job)
+            db.session.commit()
+            return jsonify({"status": "deleted", "job_id": job_id}), 200
+
         return jsonify({
             "status": "success",
             "job_id": job_id,
@@ -473,28 +487,40 @@ def register_document_routes(app):
                 400,
             )
 
-        owner_key = current_guest_owner(session)
-        active_guest_job = AnalysisJob.query.filter(
-            AnalysisJob.guest_owner == owner_key,
-            AnalysisJob.status.in_(["queued", "running", "completed"]),
-            AnalysisJob.created_at >= datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=48),
-        ).first()
-        if active_guest_job:
-            if active_guest_job.status == "completed":
-                return error_response(
-                    "GUEST_SESSION_LIMIT",
-                    "Your guest report is ready. Create an account to run another analysis.",
-                    429,
-                )
-            return error_response(
-                "GUEST_ANALYSIS_IN_PROGRESS",
-                "Your guest analysis is still running. Keep its report link to check the result later.",
-                429,
-            )
         try:
             email = (request.form.get("email") or "").strip().lower()
             if len(email) > 255 or "@" not in email or "." not in email.rsplit("@", 1)[-1]:
-                return error_response("EMAIL_REQUIRED", "Enter a valid email address so we can send the report link.", 400)
+                return error_response("EMAIL_REQUIRED", "Enter a valid email address so we can email your report.", 400)
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user and request.form.get("continue_as_guest") != "true":
+                return jsonify({
+                    "status": "error",
+                    "code": "ACCOUNT_EXISTS",
+                    "message": "An account already uses this email. Sign in or continue as a guest.",
+                }), 409
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            recent_guest_job = AnalysisJob.query.filter(
+                AnalysisJob.email == email,
+                AnalysisJob.guest_owner.isnot(None),
+                AnalysisJob.status.in_(["queued", "running", "completed"]),
+                AnalysisJob.created_at >= now - timedelta(hours=24),
+            ).order_by(AnalysisJob.created_at.desc()).first()
+            if recent_guest_job:
+                remaining = max(1, int((recent_guest_job.created_at + timedelta(hours=24) - now).total_seconds()))
+                hours, remainder = divmod(remaining, 3600)
+                minutes = remainder // 60
+                if recent_guest_job.status in {"queued", "running"}:
+                    return jsonify({
+                        "status": "error", "code": "GUEST_ANALYSIS_IN_PROGRESS",
+                        "message": f"An analysis for this email is still running. The next guest check will be available in {hours} h {minutes} min.",
+                        "retry_after_seconds": remaining,
+                    }), 429
+                return jsonify({
+                    "status": "error", "code": "GUEST_RATE_LIMIT",
+                    "message": f"This email has already been used for a guest check. Try again in {hours} h {minutes} min.",
+                    "retry_after_seconds": remaining,
+                }), 429
+            owner_key = current_guest_owner(session)
             job = enqueue_pdf(
                 request.files["file"],
                 guest_owner=owner_key,
@@ -504,6 +530,7 @@ def register_document_routes(app):
                 "status": "queued",
                 "report_id": job.id,
                 "filename": job.filename,
+                "message": "We will email your report as a PDF attachment when the analysis is ready.",
             }), 202
         except Exception as exc:
             return analysis_failure_response(app, exc)
@@ -621,7 +648,8 @@ def register_document_routes(app):
             "document": {
                 "id": document.id,
                 "filename": document.filename,
-                "upload_date": document.upload_date.isoformat(),
+                "upload_date": _utc_isoformat(document.upload_date),
+                "last_checked_at": _utc_isoformat(document.last_checked_at),
                 "processing_status": document.processing_status,
             },
             "total_references": len(results),
@@ -671,7 +699,7 @@ def register_document_routes(app):
             )
             db.session.add(watch_entry)
         watch_entry.is_active = True
-        watch_entry.last_checked_at = datetime.now(timezone.utc)
+        watch_entry.last_checked_at = document.last_checked_at
         db.session.commit()
 
         return jsonify({
@@ -721,6 +749,7 @@ def register_document_routes(app):
             ensure_retractions_dataset(CSV_PATH)
             service = RetractionService(CSV_PATH)
             refreshed = 0
+            checked_at = datetime.now(timezone.utc)
 
             for reference in document.references:
                 if not reference.detection_results:
@@ -763,6 +792,15 @@ def register_document_routes(app):
                 detection.retracted_publication_id = None
                 refreshed += 1
 
+            document.last_checked_at = checked_at
+            watch_entry = DocumentWatch.query.filter_by(
+                user_id=current_user_id(),
+                document_id=document.id,
+                is_active=True,
+            ).first()
+            if watch_entry is not None:
+                watch_entry.last_checked_at = checked_at
+
             db.session.commit()
         except Exception as exc:
             db.session.rollback()
@@ -773,6 +811,7 @@ def register_document_routes(app):
             "document_id": document.id,
             "message": "Document checks refreshed.",
             "refreshed": refreshed,
+            "last_checked_at": _utc_isoformat(document.last_checked_at),
         }), 200
 
     @app.route(
@@ -858,7 +897,8 @@ def register_document_routes(app):
             document_list.append({
                 "id": document.id,
                 "filename": document.filename,
-                "upload_date": document.upload_date.isoformat(),
+                "upload_date": _utc_isoformat(document.upload_date),
+                "last_checked_at": _utc_isoformat(document.last_checked_at),
                 "processing_status": document.processing_status,
                 "total_references": len(document.references),
                 "retracted_references": retracted_count,

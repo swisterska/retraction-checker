@@ -22,6 +22,7 @@ from app.models import (
 )
 from app.services.email_service import send_password_reset_email, send_verification_email
 from app.services.email_verification import (
+    claim_guest_reports_for_user,
     confirm_email,
     issue_password_reset_token,
     issue_verification_token,
@@ -333,6 +334,8 @@ def register_auth_routes(app):
                 "code": "EMAIL_NOT_VERIFIED",
                 "message": "Verify your email before signing in. You can request a new confirmation link below.",
             }), 403
+
+        claim_guest_reports_for_user(user)
 
         session.clear()
         session["user_id"] = user.id

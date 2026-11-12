@@ -13,15 +13,24 @@ def save_analysis_results(
     user_id: int,
     filename: str,
     references: list[dict],
+    *,
+    upload_date=None,
+    last_checked_at=None,
+    commit=True,
 ) -> int:
     """Atomically save a document, its references, and detection results."""
 
     try:
-        document = UploadedDocument(
-            user_id=user_id,
-            filename=filename,
-            processing_status="completed",
-        )
+        document_fields = {
+            "user_id": user_id,
+            "filename": filename,
+            "processing_status": "completed",
+        }
+        if upload_date is not None:
+            document_fields["upload_date"] = upload_date
+        if last_checked_at is not None:
+            document_fields["last_checked_at"] = last_checked_at
+        document = UploadedDocument(**document_fields)
         db.session.add(document)
         db.session.flush()
 
@@ -102,7 +111,8 @@ def save_analysis_results(
             db.session.add(result)
 
         document_id = document.id
-        db.session.commit()
+        if commit:
+            db.session.commit()
 
         return document_id
 

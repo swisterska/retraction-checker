@@ -22,28 +22,43 @@ from app.services.retraction_monitor import (
     should_run_watchlist_refresh,
 )
 from app.services.email_service import send_email
+from app.services.guest_report_pdf import create_guest_report_pdf
+
+RETRACTION_MONITOR_RETRY_SECONDS = 60
 
 
 def send_ready_email(job):
     """Send a short notification using standard SMTP settings."""
+    if job.guest_owner:
+        base_url = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+        if not base_url:
+            raise RuntimeError("Email is not configured (APP_PUBLIC_URL is required).")
+        report = json.loads(job.report_json or "{}")
+        pdf = create_guest_report_pdf(report)
+        report_url = f"{base_url}/guest/reports/{job.id}?access={guest_access_token(job.id)}"
+        body = (
+            f"Your analysis of {job.filename} is ready.\n\n"
+            "Your report is attached as a PDF. It includes the extracted references "
+            "and their current check statuses.\n\n"
+            f"You can also open the report online for 48 hours: {report_url}\n"
+        )
+        send_email(
+            job.email,
+            "Your Retraction Checker report is ready",
+            body,
+            attachments=[(f"{Path(job.filename).stem or 'report'}-report.pdf", pdf, "application", "pdf")],
+        )
+        return
+
     base_url = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
     if not base_url:
         raise RuntimeError(
             "Email is not configured (APP_PUBLIC_URL is required)."
         )
-
-    if job.guest_owner:
-        token = guest_access_token(job.id)
-        report_url = f"{base_url}/guest/reports/{job.id}?access={token}"
-        body = (
-            f"Your analysis of {job.filename} is ready.\n\n"
-            f"Open your temporary report (available for 48 hours): {report_url}\n"
-        )
-    else:
-        body = (
-            f"Your analysis of {job.filename} is ready.\n\n"
-            f"Sign in and open your report: {base_url}/\n"
-        )
+    body = (
+        f"Your analysis of {job.filename} is ready.\n\n"
+        f"Sign in and open your report: {base_url}/\n"
+    )
     send_email(job.email, "Your Retraction Checker report is ready", body)
 
 
@@ -120,6 +135,12 @@ def process_next_job(app):
         path = Path(job.pdf_path)
         try:
             references = process_pdf(str(path))
+            # The user may cancel while GROBID is processing. Re-read the row
+            # before persisting results so cancellation cannot become success.
+            db.session.expire_all()
+            job = db.session.get(AnalysisJob, job.id)
+            if job is None or job.status == "cancelled":
+                return True
             if not references:
                 raise ValueError("NO_REFERENCES_FOUND")
             if job.user_id is not None:
@@ -149,6 +170,8 @@ def process_next_job(app):
         except Exception as exc:
             db.session.rollback()
             job = db.session.get(AnalysisJob, job.id)
+            if job is None or job.status == "cancelled":
+                return True
             job.status = "failed"
             if str(exc) == "NO_REFERENCES_FOUND":
                 job.error_code = "NO_REFERENCES_FOUND"
@@ -204,7 +227,11 @@ def run_worker(poll_seconds=2):
                 purge_expired_guest_jobs(app)
                 last_purge = time.monotonic()
             now = datetime.now(timezone.utc)
-            if should_run_watchlist_refresh(now=now) and time.monotonic() - last_retraction_monitor >= 3600:
+            if (
+                should_run_watchlist_refresh(now=now)
+                and time.monotonic() - last_retraction_monitor
+                >= RETRACTION_MONITOR_RETRY_SECONDS
+            ):
                 try:
                     changed = check_saved_references(app, now=now)
                     sent = send_pending_retraction_notifications(app)

@@ -23,6 +23,7 @@ type Document = {
   id: number;
   filename: string;
   upload_date: string;
+  last_checked_at: string | null;
   processing_status: string;
   total_references: number;
   retracted_references: number;
@@ -32,6 +33,7 @@ type AnalysisReport = {
     id: number | string;
     filename: string;
     upload_date: string;
+    last_checked_at?: string | null;
     processing_status: string;
   };
   total_references: number;
@@ -61,6 +63,10 @@ type Finding = {
   };
 };
 type ApiErrorPayload = { code?: string; message?: string };
+
+function formatTimestamp(value?: string | null): string {
+  return value ? new Date(value).toLocaleString() : "Not checked yet";
+}
 
 function verificationLabel(status: Finding["verification_status"]): string {
   switch (status) {
@@ -304,7 +310,9 @@ function AuthPage({
     password: string,
   ) => Promise<boolean | "email_unverified">;
 }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(
+    () => new URLSearchParams(window.location.search).get("email") || "",
+  );
   const [password, setPassword] = useState("");
   const [localError, setLocalError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -586,8 +594,11 @@ function GuestPage() {
   const [csrfToken, setCsrfToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [rateLimited, setRateLimited] = useState(false);
   const [email, setEmail] = useState("");
-  const navigate = useNavigate();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [accountExists, setAccountExists] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -608,21 +619,36 @@ function GuestPage() {
     };
   }, []);
 
-  async function analyze(file?: File) {
+  async function analyze(file?: File, continueAsGuest = false) {
     if (!file || !csrfToken) return;
     setError("");
+    setSuccess("");
+    setRateLimited(false);
     setBusy(true);
     try {
       const body = new FormData();
       body.append("file", file);
       body.append("email", email);
-      const result = await request<{ report_id: string }>("/guest/jobs", {
+      if (continueAsGuest) body.append("continue_as_guest", "true");
+      const result = await request<{ report_id: string; message?: string }>("/guest/jobs", {
         method: "POST",
         headers: { "X-CSRF-Token": csrfToken },
         body,
       });
-      navigate(`/guest/reports/${result.report_id}`);
+      setAccountExists(false);
+      setSelectedFile(null);
+      setSuccess(result.message || "We’ll email you when the report is ready.");
     } catch (cause) {
+      if (cause instanceof ApiRequestError && cause.code === "ACCOUNT_EXISTS") {
+        setSelectedFile(file);
+        setAccountExists(true);
+      }
+      if (
+        cause instanceof ApiRequestError &&
+        ["GUEST_RATE_LIMIT", "GUEST_ANALYSIS_IN_PROGRESS"].includes(cause.code || "")
+      ) {
+        setRateLimited(true);
+      }
       setError(cause instanceof Error ? cause.message : "Analysis failed.");
     } finally {
       setBusy(false);
@@ -644,9 +670,8 @@ function GuestPage() {
         <p className="eyebrow">GUEST CHECK</p>
         <h1>Try one reference check</h1>
         <p className="muted guest-intro">
-          Upload a PDF and review its references. Your report is temporary and
-          available for 48 hours. We’ll email a report link if email delivery is
-          set up.
+          Enter your email and upload a PDF. We’ll email the report as a PDF
+          attachment. Guest checks are limited to one per email every 24 hours.
         </p>
         <section className="guest-upload-card">
           <span className="upload-icon">↑</span>
@@ -655,7 +680,7 @@ function GuestPage() {
           </h2>
           <p>PDF only · Maximum file size 16 MB</p>
           <label className="guest-email-field">
-            Email for the report link
+            Email for the report
             <input
               type="email"
               value={email}
@@ -684,11 +709,40 @@ function GuestPage() {
               {error}
             </p>
           )}
+          {rateLimited && (
+            <div className="guest-wait-cta" role="group" aria-label="Guest check waiting period">
+              <p>
+                {accountExists
+                  ? "Already have an account? Sign in to keep your reports together."
+                  : "Don’t want to wait? Register now and save your documents."}
+              </p>
+              <Link
+                className="primary"
+                to={accountExists
+                  ? `/login?email=${encodeURIComponent(email)}`
+                  : `/register${email ? `?email=${encodeURIComponent(email)}` : ""}`}
+              >
+                {accountExists ? "Sign in" : "Register now"}
+              </Link>
+            </div>
+          )}
+          {success && <p className="success" role="status">{success}</p>}
+          {accountExists && selectedFile && !rateLimited && (
+            <div className="guest-account-choice" role="group" aria-label="Email already has an account">
+              <p>This email already has an account. Sign in to keep unlimited checks together, or continue as a guest.</p>
+              <Link className="quiet-button" to={`/login?email=${encodeURIComponent(email)}`}>Sign in</Link>
+              <button type="button" className="secondary-button" disabled={busy} onClick={() => void analyze(selectedFile, true)}>Continue as guest</button>
+            </div>
+          )}
         </section>
-        <p className="guest-limit-note">
-          Guest access includes one analysis per session. Create an account to
-          keep reports in your history.
-        </p>
+        {!accountExists && !rateLimited && (
+          <p className="guest-limit-note">
+            Want unlimited checks and saved reports?{" "}
+            <Link to={`/register${email ? `?email=${encodeURIComponent(email)}` : ""}`}>
+              Create an account
+            </Link>
+          </p>
+        )}
       </main>
     </div>
   );
@@ -731,6 +785,7 @@ function Dashboard({
   const [jobToCancel, setJobToCancel] = useState<{
     job_id: string;
     filename: string;
+    status?: "queued" | "running" | "failed";
   } | null>(null);
   const [activeJobs, setActiveJobs] = useState<
     {
@@ -1265,16 +1320,14 @@ function Dashboard({
                     </>
                   )}
                 </p>
-                {job.status !== "failed" && (
-                  <button
+                <button
                     type="button"
                     className="queue-cancel-button"
-                    aria-label={`Cancel ${job.filename}`}
+                    aria-label={job.status === "failed" ? `Dismiss ${job.filename} error` : `Cancel ${job.filename}`}
                     onClick={() => setJobToCancel(job)}
                   >
-                    ×
-                  </button>
-                )}
+                    {job.status === "failed" ? "Dismiss" : "×"}
+                </button>
               </div>
             ))}
           </section>
@@ -1483,11 +1536,12 @@ function Dashboard({
             aria-labelledby="cancel-job-title"
             aria-describedby="cancel-job-description"
           >
-            <p className="eyebrow">CANCEL ANALYSIS</p>
-            <h2 id="cancel-job-title">Remove this file from the queue?</h2>
+            <p className="eyebrow">{jobToCancel.status === "failed" ? "FAILED ANALYSIS" : "CANCEL ANALYSIS"}</p>
+            <h2 id="cancel-job-title">{jobToCancel.status === "failed" ? "Dismiss this failed analysis?" : "Remove this file from the queue?"}</h2>
             <p id="cancel-job-description">
-              “{jobToCancel.filename}” will be removed from the current analysis
-              queue.
+              {jobToCancel.status === "failed"
+                ? `The saved error for “${jobToCancel.filename}” will be cleared from this list.`
+                : `“${jobToCancel.filename}” will be removed from the current analysis queue.`}
             </p>
             <div className="confirm-actions">
               <button
@@ -1502,7 +1556,7 @@ function Dashboard({
                 type="button"
                 onClick={() => void cancelJob(jobToCancel)}
               >
-                Remove file
+                {jobToCancel.status === "failed" ? "Dismiss error" : "Remove file"}
               </button>
             </div>
           </section>
@@ -1750,9 +1804,19 @@ function ResultsPage({ guest = false }: { guest?: boolean }) {
         </Link>
         <p className="eyebrow">ANALYSIS REPORT</p>
         <h1 className="result-title">{data.document.filename}</h1>
-        <p className="muted">
-          Analyzed {new Date(data.document.upload_date).toLocaleString()}
-        </p>
+        {guest ? (
+          <p className="muted">
+            Analyzed {formatTimestamp(data.document.upload_date)}
+          </p>
+        ) : (
+          <div className="document-timestamps">
+            <p><strong>Added:</strong> {formatTimestamp(data.document.upload_date)}</p>
+            <p><strong>Last check:</strong> {formatTimestamp(data.document.last_checked_at)}</p>
+            {id && watchList.includes(Number(id)) && (
+              <p className="muted">On your watch list · checked daily at 7:00 a.m.</p>
+            )}
+          </div>
+        )}
         <section className="summary-grid">
           <div className="summary-card">
             <span>References checked</span>

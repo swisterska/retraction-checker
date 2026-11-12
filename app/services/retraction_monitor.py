@@ -1,6 +1,7 @@
 """Daily checks for saved references that were previously verified."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from app.database import db
 from app.models import (
@@ -18,18 +19,22 @@ from app.services.retractions import RetractionService, ensure_retractions_datas
 
 
 TASK_NAME = "daily_retraction_monitor"
-CHECK_INTERVAL = timedelta(hours=24)
 WATCHLIST_REFRESH_HOUR = 7
-WATCHLIST_REFRESH_WINDOW_MINUTES = 10
+WATCHLIST_TIMEZONE = ZoneInfo("Europe/Warsaw")
 ALERT_PREFIX = "A cited reference is now retracted:"
 
 
-def should_run_watchlist_refresh(*, now=None, target_hour=WATCHLIST_REFRESH_HOUR, window_minutes=WATCHLIST_REFRESH_WINDOW_MINUTES):
-    """Return True if the app should run its watched-document refresh at the scheduled hour."""
+def _as_utc(value):
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def should_run_watchlist_refresh(*, now=None, target_hour=WATCHLIST_REFRESH_HOUR):
+    """Run at 7 a.m. Warsaw time and catch up if the app starts later that day."""
     now = now or datetime.now(timezone.utc)
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
-    return now.hour == target_hour and now.minute < window_minutes
+    local_now = _as_utc(now).astimezone(WATCHLIST_TIMEZONE)
+    return local_now.hour >= target_hour
 
 
 def check_saved_references(app, *, now=None, dataset_path=CSV_PATH):
@@ -38,29 +43,32 @@ def check_saved_references(app, *, now=None, dataset_path=CSV_PATH):
     Returns the number of newly retracted references. Only a successful dataset
     load advances the persistent schedule marker, so failures can be retried.
     """
-    now = now or datetime.now(timezone.utc)
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+    now = _as_utc(now or datetime.now(timezone.utc))
 
     with app.app_context():
         state = db.session.get(BackgroundTaskState, TASK_NAME)
         if state and state.last_success_at:
-            last_success = state.last_success_at
-            if last_success.tzinfo is None:
-                last_success = last_success.replace(tzinfo=timezone.utc)
-            if now - last_success < CHECK_INTERVAL:
+            last_success_date = _as_utc(state.last_success_at).astimezone(
+                WATCHLIST_TIMEZONE
+            ).date()
+            if last_success_date == now.astimezone(WATCHLIST_TIMEZONE).date():
                 return 0
 
         ensure_retractions_dataset(dataset_path)
         service = RetractionService(dataset_path)
-        watched_document_ids = (
-            db.session.query(DocumentWatch.document_id)
-            .filter(
-                DocumentWatch.user_id == UploadedDocument.user_id,
-                DocumentWatch.is_active.is_(True),
+        watched_documents = (
+            db.session.query(DocumentWatch, UploadedDocument)
+            .join(
+                UploadedDocument,
+                (DocumentWatch.document_id == UploadedDocument.id)
+                & (DocumentWatch.user_id == UploadedDocument.user_id),
             )
-            .subquery()
+            .filter(DocumentWatch.is_active.is_(True))
+            .all()
         )
+        for watch_entry, document in watched_documents:
+            watch_entry.last_checked_at = now
+            document.last_checked_at = now
 
         candidates = (
             db.session.query(DetectionResult, ExtractedReference, UploadedDocument)
@@ -103,14 +111,6 @@ def check_saved_references(app, *, now=None, dataset_path=CSV_PATH):
             result.retracted_publication_id = publication.id
             result.detection_method = "Daily Retraction Watch status check"
             result.detected_at = now
-
-            watch_entry = DocumentWatch.query.filter_by(
-                user_id=document.user_id,
-                document_id=document.id,
-                is_active=True,
-            ).first()
-            if watch_entry is not None:
-                watch_entry.last_checked_at = now
 
             db.session.add(Notification(
                 user_id=document.user_id,

@@ -6,7 +6,7 @@ import smtplib
 import ssl
 
 
-def send_email(recipient: str, subject: str, body: str) -> None:
+def send_email(recipient: str, subject: str, body: str, *, attachments=()) -> None:
     """Send one plain-text message with the configured SMTP account."""
     host = os.environ.get("SMTP_HOST")
     sender = os.environ.get("MAIL_FROM")
@@ -18,6 +18,13 @@ def send_email(recipient: str, subject: str, body: str) -> None:
     message["From"] = sender
     message["To"] = recipient
     message.set_content(body)
+    for filename, content, maintype, subtype in attachments:
+        message.add_attachment(
+            content,
+            maintype=maintype,
+            subtype=subtype,
+            filename=filename,
+        )
 
     port = int(os.environ.get("SMTP_PORT", "587"))
     username = os.environ.get("SMTP_USERNAME")

@@ -11,6 +11,7 @@ from app.models import (
     ExtractedReference,
     Notification,
     User,
+    UploadedDocument,
 )
 from app.services.database_service import save_analysis_results
 from app.services.retraction_monitor import (
@@ -100,9 +101,58 @@ def test_daily_check_transitions_only_previously_verified_references(
 
 
 def test_should_run_watchlist_refresh_only_during_target_window():
-    assert should_run_watchlist_refresh(now=datetime(2026, 11, 10, 7, 0, tzinfo=timezone.utc)) is True
-    assert should_run_watchlist_refresh(now=datetime(2026, 11, 10, 6, 59, tzinfo=timezone.utc)) is False
-    assert should_run_watchlist_refresh(now=datetime(2026, 11, 10, 7, 10, tzinfo=timezone.utc)) is False
+    assert should_run_watchlist_refresh(now=datetime(2026, 11, 10, 6, 0, tzinfo=timezone.utc)) is True
+    assert should_run_watchlist_refresh(now=datetime(2026, 11, 10, 5, 59, tzinfo=timezone.utc)) is False
+    assert should_run_watchlist_refresh(now=datetime(2026, 11, 10, 6, 10, tzinfo=timezone.utc)) is True
+    assert should_run_watchlist_refresh(now=datetime(2026, 7, 10, 5, 0, tzinfo=timezone.utc)) is True
+    assert should_run_watchlist_refresh(now=datetime(2026, 7, 10, 4, 59, tzinfo=timezone.utc)) is False
+
+
+def test_daily_watch_check_updates_document_timestamp_without_a_status_change(
+    monitor_app, tmp_path, monkeypatch,
+):
+    from app.services import retraction_monitor
+
+    csv_path = tmp_path / "retractions.csv"
+    csv_path.write_text(
+        "OriginalPaperDOI,Reason\n10.2000/example,Other\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(retraction_monitor, "ensure_retractions_dataset", lambda _path: False)
+    with monitor_app.app_context():
+        user = User(email="daily-check@example.org", password_hash="test")
+        db.session.add(user)
+        db.session.flush()
+        document_id = save_analysis_results(
+            user_id=user.id,
+            filename="watched-paper.pdf",
+            references=[{
+                "title": "A verified article",
+                "doi": "10.1000/still-active",
+                "retracted": False,
+                "verification_status": "verified",
+            }],
+        )
+        watch_entry = DocumentWatch(
+            user_id=user.id,
+            document_id=document_id,
+            is_active=True,
+        )
+        db.session.add(watch_entry)
+        db.session.commit()
+
+    checked_at = datetime(2026, 11, 10, 6, 0, tzinfo=timezone.utc)
+    assert check_saved_references(
+        monitor_app,
+        now=checked_at,
+        dataset_path=str(csv_path),
+    ) == 0
+
+    with monitor_app.app_context():
+        document = db.session.get(UploadedDocument, document_id)
+        watch_entry = DocumentWatch.query.filter_by(document_id=document_id).one()
+        assert document.last_checked_at.replace(tzinfo=timezone.utc) == checked_at
+        assert watch_entry.last_checked_at.replace(tzinfo=timezone.utc) == checked_at
 
 
 def test_retraction_digest_marks_email_sent_and_does_not_repeat(

@@ -15,8 +15,6 @@ from app.route_modules import register_routes
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-import argparse
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -192,6 +190,15 @@ def create_app(test_config=None):
         if migrated:
             app.logger.info(
                 "DOI identity migration completed%s.",
+                f"; backup saved to {backup_path}" if backup_path else "",
+            )
+
+        from app.migrations.document_last_check import migrate_document_last_check
+
+        migrated, backup_path = migrate_document_last_check(db.engine)
+        if migrated:
+            app.logger.info(
+                "Document last-check migration completed%s.",
                 f"; backup saved to {backup_path}" if backup_path else "",
             )
 

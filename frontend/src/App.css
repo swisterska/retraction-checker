@@ -585,6 +585,20 @@
 .result-title {
   overflow-wrap: anywhere;
 }
+.document-timestamps {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  color: #728078;
+  font-size: 13px;
+}
+.document-timestamps p {
+  margin: 0;
+  line-height: 1.6;
+}
+.document-timestamps strong {
+  color: #34463d;
+}
 .summary-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1160,6 +1174,44 @@
 .guest-email-field input:focus {
   border-color: #5a9878;
   outline: 3px solid #e4f0e8;
+}
+.guest-account-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #e4e9e3;
+  border-radius: 10px;
+  background: #fbfcfa;
+  text-align: left;
+}
+.guest-account-choice p {
+  flex: 1 0 100%;
+  margin: 0 0 4px;
+  color: #53645a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.guest-wait-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #dce8df;
+  border-radius: 10px;
+  background: #f2f7f3;
+  text-align: left;
+}
+.guest-wait-cta p {
+  flex: 1 0 100%;
+  margin: 0;
+  color: #35463c;
+  font-size: 13px;
 }
 .guest-upload-card .alert {
   box-sizing: border-box;

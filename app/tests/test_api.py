@@ -7,7 +7,6 @@ import pytest
 
 from app.database import db
 from app.main import create_app
-from app.run_grobid_pipeline import process_pdf
 
 
 VALID_PDF_PATH = Path(__file__).parent / "fixtures" / "testychat.pdf"
@@ -201,6 +200,12 @@ def test_document_refresh_requires_valid_csrf_token(client, monkeypatch):
     )
     assert response.status_code == 200
     document_id = response.json["document_id"]
+    added_response = client.get(
+        f"/api/documents/{document_id}/results"
+    )
+    added_at = added_response.json["document"]["upload_date"]
+    assert added_at
+    assert added_response.json["document"]["last_checked_at"]
 
     missing_token_response = client.post(
         f"/api/documents/{document_id}/refresh",
@@ -214,6 +219,12 @@ def test_document_refresh_requires_valid_csrf_token(client, monkeypatch):
     assert refresh_response.status_code == 200
     assert refresh_response.json["status"] == "success"
     assert refresh_response.json["document_id"] == document_id
+    assert refresh_response.json["last_checked_at"]
+    updated_report = client.get(
+        f"/api/documents/{document_id}/results"
+    ).json
+    assert updated_report["document"]["upload_date"] == added_at
+    assert updated_report["document"]["last_checked_at"] == refresh_response.json["last_checked_at"]
 
 
 def test_watchlist_is_persisted_per_user_and_visible_in_document_list(client):
@@ -891,6 +902,123 @@ def test_failed_jobs_remain_visible_to_the_user(client, monkeypatch):
     assert failed["error_code"] == "GROBID_EMPTY_RESPONSE"
 
 
+def test_failed_job_can_be_dismissed(client):
+    from app.models import AnalysisJob
+
+    queued = client.post(
+        "/api/jobs",
+        data={"file": (io.BytesIO(valid_pdf_bytes()), "dismiss-me.pdf")},
+        content_type="multipart/form-data",
+    )
+    job_id = queued.json["job_id"]
+    with client.application.app_context():
+        job = db.session.get(AnalysisJob, job_id)
+        job.status = "failed"
+        job.error_code = "ANALYSIS_FAILED"
+        db.session.commit()
+    csrf_token = client.get("/api/csrf").json["csrf_token"]
+    deleted = client.delete(f"/api/jobs/{job_id}", headers={"X-CSRF-Token": csrf_token})
+    assert deleted.status_code == 200
+    assert all(item["job_id"] != job_id for item in client.get("/api/jobs").json["jobs"])
+
+
+def test_guest_limit_is_per_email_for_24_hours_and_allows_another_email(client):
+    csrf_token = switch_to_guest(client)
+    first = client.post(
+        "/api/guest/jobs",
+        data={"email": "first@example.org", "file": (io.BytesIO(valid_pdf_bytes()), "one.pdf")},
+        headers={"X-CSRF-Token": csrf_token}, content_type="multipart/form-data",
+    )
+    different_email = client.post(
+        "/api/guest/jobs",
+        data={"email": "second@example.org", "file": (io.BytesIO(valid_pdf_bytes()), "two.pdf")},
+        headers={"X-CSRF-Token": csrf_token}, content_type="multipart/form-data",
+    )
+    repeated_email = client.post(
+        "/api/guest/jobs",
+        data={"email": "FIRST@example.org", "file": (io.BytesIO(valid_pdf_bytes()), "three.pdf")},
+        headers={"X-CSRF-Token": csrf_token}, content_type="multipart/form-data",
+    )
+    assert first.status_code == 202
+    assert different_email.status_code == 202
+    assert repeated_email.status_code == 429
+    assert repeated_email.json["code"] == "GUEST_ANALYSIS_IN_PROGRESS"
+    assert repeated_email.json["retry_after_seconds"] > 0
+
+
+def test_guest_upload_offers_existing_account_choice(client):
+    from app.services.user_service import register_user
+
+    with client.application.app_context():
+        register_user("already@example.org", "LongEnoughPassword!123")
+    csrf_token = switch_to_guest(client)
+    response = client.post(
+        "/api/guest/jobs",
+        data={"email": "Already@example.org", "file": (io.BytesIO(valid_pdf_bytes()), "account.pdf")},
+        headers={"X-CSRF-Token": csrf_token}, content_type="multipart/form-data",
+    )
+    assert response.status_code == 409
+    assert response.json["code"] == "ACCOUNT_EXISTS"
+
+
+def test_verified_account_claims_recent_guest_report(client):
+    import json
+    from datetime import datetime
+    from app.models import AnalysisJob, UploadedDocument, User
+    from app.services.email_verification import claim_guest_reports_for_user
+    from app.services.user_service import register_user
+
+    with client.application.app_context():
+        user = register_user("guest-owner@example.org", "LongEnoughPassword!123")
+        completed_at = datetime(2026, 11, 12, 0, 32, 0)
+        job = AnalysisJob(
+            id="b" * 32, guest_owner="guest-hash", user_id=None,
+            email=user.email, filename="guest-paper.pdf", pdf_path="/tmp/no-guest-file.pdf",
+            status="completed", report_json=json.dumps({"results": [{
+                "title": "Guest reference", "authors": "A Reader", "year": 2024,
+                "doi": "10.1234/guest", "is_retracted": False,
+                "verification_status": "verified",
+            }]}), finished_at=completed_at,
+        )
+        db.session.add(job)
+        db.session.commit()
+        assert claim_guest_reports_for_user(user) == 1
+        db.session.refresh(job)
+        assert job.user_id == user.id
+        assert job.guest_owner is None
+        assert job.report_json is None
+        assert job.document_id is not None
+        document = db.session.get(UploadedDocument, job.document_id)
+        assert document.upload_date == completed_at
+        assert document.last_checked_at == completed_at
+        assert claim_guest_reports_for_user(user) == 0
+        assert UploadedDocument.query.filter_by(user_id=user.id, filename="guest-paper.pdf").count() == 1
+
+
+def test_worker_does_not_overwrite_cancellation(client, monkeypatch):
+    from app import analysis_worker
+    from app.models import AnalysisJob, UploadedDocument
+
+    queued = client.post(
+        "/api/jobs",
+        data={"file": (io.BytesIO(valid_pdf_bytes()), "cancel-during-run.pdf")},
+        content_type="multipart/form-data",
+    )
+    job_id = queued.json["job_id"]
+
+    def cancel_during_grobid(_path):
+        AnalysisJob.query.filter_by(id=job_id).update({"status": "cancelled"})
+        db.session.commit()
+        return [{"title": "Must not be saved", "doi": "10.1234/cancelled"}]
+
+    monkeypatch.setattr("app.analysis_worker.process_pdf", cancel_during_grobid)
+    monkeypatch.setattr("app.analysis_worker.send_ready_email", lambda _job: None)
+    assert analysis_worker.process_next_job(client.application)
+    with client.application.app_context():
+        assert db.session.get(AnalysisJob, job_id).status == "cancelled"
+        assert UploadedDocument.query.filter_by(filename="cancel-during-run.pdf").count() == 0
+
+
 def test_worker_records_grobid_empty_response_code(client, monkeypatch):
     from app import analysis_worker
     from app.models import AnalysisJob
@@ -944,7 +1072,8 @@ def test_completed_job_stays_saved_when_email_settings_are_missing(client, monke
     assert status["email_warnings"] == ["email_notice.pdf"]
 
 
-def test_guest_ready_email_contains_a_signed_report_link(client, monkeypatch):
+def test_guest_ready_email_attaches_a_pdf_report(client, monkeypatch):
+    import json
     from app.analysis_worker import send_ready_email
     from app.models import AnalysisJob
     from app.services.analysis_jobs import guest_job_from_token
@@ -954,7 +1083,7 @@ def test_guest_ready_email_contains_a_signed_report_link(client, monkeypatch):
     monkeypatch.setenv("APP_PUBLIC_URL", "https://checker.example.org")
     monkeypatch.setattr(
         "app.analysis_worker.send_email",
-        lambda recipient, subject, body: captured.append((recipient, subject, body)),
+        lambda recipient, subject, body, **kwargs: captured.append((recipient, subject, body, kwargs)),
     )
     job = AnalysisJob(
         id="a" * 32,
@@ -963,6 +1092,9 @@ def test_guest_ready_email_contains_a_signed_report_link(client, monkeypatch):
         filename="paper.pdf",
         pdf_path="/tmp/unused-test.pdf",
         status="completed",
+        report_json=json.dumps({"document": {"filename": "paper.pdf"}, "total_references": 1,
+            "retracted_references": 1, "results": [{"title": "Retracted paper",
+                "verification_status": "retracted", "doi": "10.1234/example"}]}),
     )
     with client.application.app_context():
         db.session.add(job)
@@ -970,10 +1102,17 @@ def test_guest_ready_email_contains_a_signed_report_link(client, monkeypatch):
         send_ready_email(job)
         assert len(captured) == 1
         assert captured[0][0] == "reader@example.org"
-        content = captured[0][2]
-        assert "https://checker.example.org/guest/reports/" + job.id in content
-        token = content.split("?access=", 1)[1].strip()
+        assert "attached as a PDF" in captured[0][2]
+        assert "https://checker.example.org/guest/reports/" + job.id in captured[0][2]
+        token = captured[0][2].split("?access=", 1)[1].split()[0]
         assert guest_job_from_token(job.id, token).id == job.id
+        filename, pdf, maintype, subtype = captured[0][3]["attachments"][0]
+        assert filename == "paper-report.pdf"
+        assert (maintype, subtype) == ("application", "pdf")
+        from pypdf import PdfReader
+        import io
+        parsed = PdfReader(io.BytesIO(pdf))
+        assert "Retracted paper" in parsed.pages[0].extract_text()
 
 
 def test_guest_analysis_rate_limit_returns_json(client):

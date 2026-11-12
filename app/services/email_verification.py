@@ -1,13 +1,16 @@
 """Short-lived, single-use email confirmation and password reset tokens."""
 
-from datetime import datetime, timedelta, timezone
 import hashlib
+import json
 import secrets
+from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import update
 from werkzeug.security import generate_password_hash
 
 from app.database import db
-from app.models import EmailVerificationToken, PasswordResetToken, User
+from app.models import AnalysisJob, EmailVerificationToken, PasswordResetToken, User
+from app.services.database_service import save_analysis_results
 
 
 TOKEN_LIFETIME = timedelta(hours=24)
@@ -51,7 +54,75 @@ def confirm_email(raw_token: str) -> bool:
     user.email_verified = True
     db.session.delete(record)
     db.session.commit()
+    claim_guest_reports_for_user(user)
     return True
+
+
+def claim_guest_reports_for_user(user) -> int:
+    """Move recent guest reports into an account after email ownership is proven."""
+    # Guest reports are attached only after the address is verified, which
+    # proves ownership of the email used for those temporary checks.
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=48)
+    guest_job_ids = [job_id for (job_id,) in AnalysisJob.query.with_entities(AnalysisJob.id).filter_by(
+        email=user.email,
+        status="completed",
+    ).filter(
+        AnalysisJob.guest_owner.isnot(None),
+        AnalysisJob.user_id.is_(None),
+        AnalysisJob.report_json.isnot(None),
+        AnalysisJob.created_at >= cutoff,
+    ).all()]
+    claimed = 0
+    for job_id in guest_job_ids:
+        try:
+            claim = db.session.execute(
+                update(AnalysisJob)
+                .where(
+                    AnalysisJob.id == job_id,
+                    AnalysisJob.email == user.email,
+                    AnalysisJob.guest_owner.isnot(None),
+                    AnalysisJob.user_id.is_(None),
+                    AnalysisJob.status == "completed",
+                )
+                .values(user_id=user.id, guest_owner=None)
+            )
+            if claim.rowcount != 1:
+                db.session.rollback()
+                continue
+            db.session.expire_all()
+            job = db.session.get(AnalysisJob, job_id)
+            if job is None or not job.report_json:
+                db.session.rollback()
+                continue
+            report = json.loads(job.report_json)
+            references = [
+                {
+                    "title": item.get("title"),
+                    "authors": item.get("authors"),
+                    "year": item.get("year"),
+                    "doi": item.get("doi"),
+                    "pmid": item.get("pmid"),
+                    "retracted": item.get("is_retracted", False),
+                    "verification_status": item.get("verification_status"),
+                    "verification_note": item.get("verification_note"),
+                    "retraction_reason": (item.get("retracted_publication") or {}).get("retraction_reason"),
+                }
+                for item in report.get("results", [])
+            ]
+            job.document_id = save_analysis_results(
+                user_id=user.id,
+                filename=job.filename,
+                references=references,
+                upload_date=job.finished_at or job.created_at,
+                last_checked_at=job.finished_at or job.created_at,
+                commit=False,
+            )
+            job.report_json = None
+            db.session.commit()
+            claimed += 1
+        except Exception:
+            db.session.rollback()
+    return claimed
 
 
 def issue_password_reset_token(user_id: int) -> str:

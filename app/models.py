@@ -53,6 +53,7 @@ class UploadedDocument(db.Model):
 
     filename = db.Column(db.String(255), nullable=False)
     upload_date = db.Column(db.DateTime, default=utc_now, nullable=False)
+    last_checked_at = db.Column(db.DateTime, default=utc_now, nullable=True)
     processing_status = db.Column(
         db.String(50),
         default="pending",
