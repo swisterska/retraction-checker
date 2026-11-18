@@ -214,7 +214,9 @@ class AnalysisJob(db.Model):
 
 
 class BackgroundTaskState(db.Model):
-    """Store when a background task last completed successfully."""
+    """Store when a background task last completed successfully.
+    This is useful so daily check isn't run multiple times
+    """
 
     __tablename__ = "background_task_states"
 

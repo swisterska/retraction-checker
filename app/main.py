@@ -119,7 +119,9 @@ def start_analysis_worker():
 
 
 def run_server(app, port):
-    """Run Flask and keep its worker lifecycle tied to the server process."""
+    """Run Flask and keep its worker lifecycle tied to the server process.
+    
+    It starts the worker, runs Flask, and when Flask stops, worker stops as well"""
     
     worker = start_analysis_worker()
     try:
