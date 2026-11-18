@@ -1,4 +1,12 @@
 
+"""Describe the data stored by the Retraction Checker.
+
+Each model in this file describes a database table and its connections
+to other tables. Together, they define how the application stores users,
+documents, references, check results, notifications, and background jobs.
+This file describes the data structure; other files read and change the data.
+"""
+
 from datetime import datetime, timezone
 from app.database import db
 
